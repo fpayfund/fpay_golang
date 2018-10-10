@@ -24,8 +24,55 @@ package fpay
 
 import (
 	"fpay/cli"
+	"fpay/datasource"
+	"fpay/monitor"
+	"time"
+	"zlog"
 )
 
-func Run(settings *cli.Settings) (err error) {
-	return nil
+type FPAY struct {
+	in, out    chan uint8
+	settings   *cli.Settings
+	datasource *datasource.DataSource
+	monitor    *monitor.Monitor
+}
+
+func New(settings *cli.Settings) (ctx *FPAY) {
+	ctx = new(FPAY)
+	ctx.in = make(chan uint8, 1)
+	ctx.out = make(chan uint8, 1)
+	ctx.datasource = datasource.New(settings)
+	ctx.monitor = monitor.New(settings)
+	return
+}
+
+func (this *FPAY) loop() {
+	for {
+		select {
+		case <-this.in:
+			this.out <- 0
+			break
+		case <-time.After(10 * time.Second):
+			zlog.Infoln("10s runout")
+		}
+	}
+}
+
+func (this *FPAY) Startup() {
+	zlog.Infoln("FPAY service is starting up.")
+
+	this.datasource.Startup()
+	this.monitor.Startup()
+
+	go this.loop()
+}
+
+func (this *FPAY) Shutdown() {
+	zlog.Infoln("FPAY service is Shutting down.")
+
+	this.in <- 0
+	this.monitor.Shutdown()
+	this.datasource.Shutdown()
+	<-this.out
+	zlog.Infoln("FPAY service already closed.")
 }

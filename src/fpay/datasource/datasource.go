@@ -20,7 +20,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package monitor
+package datasource
 
 import (
 	"fpay/cli"
@@ -28,18 +28,18 @@ import (
 	"zlog"
 )
 
-type Monitor struct {
+type DataSource struct {
 	in, out chan uint8
 }
 
-func New(settings *cli.Settings) (mon *Monitor) {
-	mon = new(Monitor)
-	mon.in = make(chan uint8, 1)
-	mon.out = make(chan uint8, 1)
+func New(settings *cli.Settings) (ds *DataSource) {
+	ds = new(DataSource)
+	ds.in = make(chan uint8, 1)
+	ds.out = make(chan uint8, 1)
 	return
 }
 
-func (this *Monitor) loop() {
+func (this *DataSource) loop() {
 	for {
 		select {
 		case <-this.in:
@@ -51,15 +51,15 @@ func (this *Monitor) loop() {
 	}
 }
 
-func (this *Monitor) Startup() {
-	zlog.Infoln("Monitor service is starting up.")
+func (this *DataSource) Startup() {
+	zlog.Infoln("DataSource service is starting up.")
 
 	go this.loop()
 }
 
-func (this *Monitor) Shutdown() {
-	zlog.Infoln("Monitor service is Shutting down.")
+func (this *DataSource) Shutdown() {
+	zlog.Infoln("DataSource service is Shutting down.")
 	this.in <- 0
 	<-this.out
-	zlog.Infoln("Monitor service already closed.")
+	zlog.Infoln("DataSource service already closed.")
 }

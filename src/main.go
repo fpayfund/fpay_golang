@@ -23,8 +23,8 @@ DEALINGS IN THE SOFTWARE.
 package main
 
 import (
+	"fpay"
 	"fpay/cli"
-	"fpay/monitor"
 	"os"
 	"os/signal"
 	"syscall"
@@ -32,7 +32,7 @@ import (
 )
 
 func main() {
-	_, err := cli.Parse()
+	settings, err := cli.Parse()
 
 	if err != nil {
 		panic("Commandline params parse failed: " + err.Error())
@@ -45,12 +45,11 @@ func main() {
 	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
 	defer signal.Stop(osSignal)
 
-	// TODO: 设置monitor参数
-	//
-	ms := monitor.New()
+	// TODO: 设置settings参数
 
-	ms.Startup()
-	defer ms.Shutdown()
+	fpayService := fpay.New(settings)
+	fpayService.Startup()
+	defer fpayService.Shutdown()
 
 	<-osSignal
 	return
