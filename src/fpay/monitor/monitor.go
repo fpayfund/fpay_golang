@@ -22,6 +22,10 @@ DEALINGS IN THE SOFTWARE.
 
 package monitor
 
+import (
+	"zlog"
+)
+
 type Monitor struct {
 }
 
@@ -30,10 +34,18 @@ func New() (mon *Monitor) {
 	return mon
 }
 
-func (this *Monitor) Startup() {
+func (this *Monitor) loop() {
+	for {
 
+	}
+}
+
+func (this *Monitor) Startup() {
+	zlog.Infoln("FPAY monitor is starting up.")
+
+	go this.loop()
 }
 
 func (this *Monitor) Shutdown() {
-
+	zlog.Infoln("FPAY monitor is Shutting down.")
 }

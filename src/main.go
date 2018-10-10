@@ -38,8 +38,8 @@ func main() {
 		panic("Commandline params parse failed: " + err.Error())
 	}
 
-	zlog.Infoln("FPAY Service is starting up.")
-	defer zlog.Infoln("FPAY Service is shutdown.")
+	zlog.Infoln("FPAY is starting up.")
+	defer zlog.Infoln("FPAY is shutdown.")
 
 	osSignal := make(chan os.Signal)
 	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
