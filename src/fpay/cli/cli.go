@@ -22,9 +22,8 @@ DEALINGS IN THE SOFTWARE.
 
 package cli
 
-import (
-	"fpay"
-)
+type Settings struct {
+}
 
 func Parse() (settings *Settings, err error) {
 	return nil, nil

@@ -32,12 +32,14 @@ run:
 	./$(BINARY_NAME)
 deps:
 
-fpay: zlog
-
 zlog:
 	$(GOBUILD) zlog
 	$(GOINSTALL) zlog
 
-fpay:
+main:
+	$(GOBUILD) main
+	$(GOINSTALL) main
+
+fpay: zlog main
 	$(GOBUILD) fpay
 	$(GOINSTALL) fpay

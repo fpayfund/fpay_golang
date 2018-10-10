@@ -23,30 +23,9 @@ DEALINGS IN THE SOFTWARE.
 package fpay
 
 import (
-	"fpay/monitor"
-	"os"
-	"os/signal"
-	"syscall"
-	"zlog"
+	"fpay/cli"
 )
 
-func Run(settings *Settings) (err error) {
-	zlog.Infoln("FPAY Service is starting up.")
-	defer zlog.Infoln("FPAY Service is shutdown.")
-
-	osSignal := make(chan os.Signal)
-	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
-	defer signal.Stop(osSignal)
-
-	// TODO: 设置monitor参数
-	//
-	ms := monitor.New()
-
-	ms.Startup()
-	defer ms.Shutdown()
-
-	select {
-	case <-osSignal:
-		return
-	}
+func Run(settings *cli.Settings) (err error) {
+	return nil
 }
