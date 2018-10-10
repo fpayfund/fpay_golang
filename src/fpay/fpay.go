@@ -26,12 +26,22 @@ import (
 	"fpay/cli"
 	"fpay/datasource"
 	"fpay/monitor"
-	"time"
 	"zlog"
 )
 
+const (
+	STARTING uint8 = iota
+	BOOKKEEPER
+	REVIEWER
+	TRANSFERER
+	RECEIVER
+	PAYER
+	SHUTTING
+)
+
 type FPAY struct {
-	in, out    chan uint8
+	state      uint8      // 状态，BOOKKEEPER, REVIEWER, TRANSFORMER
+	in, out    chan uint8 // 命令输入、输出队列
 	settings   *cli.Settings
 	datasource *datasource.DataSource
 	monitor    *monitor.Monitor
@@ -46,14 +56,59 @@ func New(settings *cli.Settings) (ctx *FPAY) {
 	return
 }
 
+func (this *FPAY) starting() {
+	zlog.Infoln("STARTING")
+}
+
+func (this *FPAY) bookkeeper() {
+	zlog.Infoln("BOOKKEEPER")
+}
+
+func (this *FPAY) reviewer() {
+	zlog.Infoln("REVIEWER")
+}
+
+func (this *FPAY) transferer() {
+	zlog.Infoln("TRANSFERER")
+}
+
+func (this *FPAY) receiver() {
+	zlog.Infoln("RECEIVER")
+}
+
+func (this *FPAY) payer() {
+	zlog.Infoln("PAYER")
+}
+
+func (this *FPAY) shutting() {
+	zlog.Infoln("SHUTTING")
+	this.out <- 0
+}
+
 func (this *FPAY) loop() {
 	for {
 		select {
 		case <-this.in:
-			this.out <- 0
-			break
-		case <-time.After(10 * time.Second):
-			zlog.Infoln("10s runout")
+			this.state = SHUTTING
+		default:
+			switch this.state {
+			case STARTING:
+				this.starting()
+			case BOOKKEEPER:
+				this.bookkeeper()
+			case REVIEWER:
+				this.reviewer()
+			case TRANSFERER:
+				this.transferer()
+			case RECEIVER:
+				this.receiver()
+			case PAYER:
+				this.payer()
+			case SHUTTING:
+				this.shutting()
+			default:
+				zlog.Errorln("Wrong state")
+			}
 		}
 	}
 }
@@ -73,6 +128,5 @@ func (this *FPAY) Shutdown() {
 	this.in <- 0
 	this.monitor.Shutdown()
 	this.datasource.Shutdown()
-	<-this.out
 	zlog.Infoln("FPAY service already closed.")
 }
