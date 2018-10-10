@@ -20,33 +20,20 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package fpay
+package monitor
 
-import (
-	"fpay/monitor"
-	"os"
-	"os/signal"
-	"syscall"
-	"zlog"
-)
+type Monitor struct {
+}
 
-func Run(settings *Settings) (err error) {
-	zlog.Infoln("FPAY Service is starting up.")
-	defer zlog.Infoln("FPAY Service is shutdown.")
+func New() (mon *Monitor) {
+	mon = new(Monitor)
+	return mon
+}
 
-	osSignal := make(chan os.Signal)
-	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
-	defer signal.Stop(osSignal)
+func (this *Monitor) Startup() {
 
-	// TODO: 设置monitor参数
-	//
-	ms := monitor.New()
+}
 
-	ms.Startup()
-	defer ms.Shutdown()
+func (this *Monitor) Shutdown() {
 
-	select {
-	case <-osSignal:
-		return
-	}
 }
