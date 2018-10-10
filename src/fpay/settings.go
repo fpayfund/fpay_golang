@@ -20,13 +20,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package node /* 节点 */
+package fpay
 
-import (
-	"fpay/cache"
-	"net"
-)
-
-type Node struct {
-	ip net.IP
+type Settings struct {
 }

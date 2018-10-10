@@ -20,13 +20,48 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package node /* 节点 */
+package fpay
 
 import (
 	"fpay/cache"
-	"net"
+	"fpay/node"
+	"zlog"
 )
 
-type Node struct {
-	ip net.IP
+func Run(settings *Settings) (err error) {
+	zlog.Infoln("FPAY Service is starting up.")
+
+	cacheService, err := cache.New()
+	if err != nil || cacheService == nil {
+		zlog.Fatalln("Cache service Create failed: " + err.Error())
+		return
+	}
+
+	// TODO: 设定cache 参数
+
+	cacheService.Startup()
+	message, ok := <-cacheService.MessageOut
+
+	if ok && message == cache.READY {
+		err = node.Run(settings, cacheService)
+
+	} else {
+		if !ok {
+			zlog.Errorln("The MessageOut chan closed unexpectedly.")
+		} else {
+			zlog.Errorln("The cache state is incorrect.")
+		}
+
+		zlog.Fatalln("Cache service startup failed.")
+
+	}
+
+	if err != nil {
+		zlog.Fatalln("FPAY node startup failed.")
+	}
+
+	cacheService.Shutdown()
+
+	zlog.Infoln("FPAY Service is shutdown.")
+	return
 }

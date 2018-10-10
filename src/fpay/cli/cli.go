@@ -20,13 +20,12 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package node /* 节点 */
+package cli
 
 import (
-	"fpay/cache"
-	"net"
+	"fpay"
 )
 
-type Node struct {
-	ip net.IP
+func Parse() (settings *Settings, err error) {
+	return nil, nil
 }

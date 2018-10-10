@@ -20,13 +20,23 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package node /* 节点 */
+package main
 
 import (
-	"fpay/cache"
-	"net"
+	"fpay"
+	"fpay/cli"
+	"zlog"
 )
 
-type Node struct {
-	ip net.IP
+func main() {
+	settings, err := cli.Parse()
+
+	if err != nil {
+		panic("Commandline params parse failed: " + err.Error())
+	}
+
+	err = fpay.Run(settings)
+	if err != nil {
+		panic("FPAY service startup failed: " + err.Error())
+	}
 }

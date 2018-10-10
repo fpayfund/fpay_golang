@@ -32,32 +32,12 @@ run:
 	./$(BINARY_NAME)
 deps:
 
-fpay: zlog core account payment confirmation block node
+fpay: zlog
 
 zlog:
 	$(GOBUILD) zlog
 	$(GOINSTALL) zlog
 
-core:
-	$(GOBUILD) fpay/core
-	$(GOINSTALL) fpay/core
-
-account:
-	$(GOBUILD) fpay/account
-	$(GOINSTALL) fpay/account
-
-payment: 
-	$(GOBUILD) fpay/payment
-	$(GOINSTALL) fpay/payment
-
-confirmation: payment
-	$(GOBUILD) fpay/confirmation
-	$(GOINSTALL) fpay/confirmation
-
-block: core payment
-	$(GOBUILD) fpay/block
-	$(GOINSTALL) fpay/block
-
-node:
-	$(GOBUILD) fpay/node
-	$(GOINSTALL) fpay/node
+fpay:
+	$(GOBUILD) fpay
+	$(GOINSTALL) fpay

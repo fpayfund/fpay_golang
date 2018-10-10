@@ -20,13 +20,26 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package node /* 节点 */
+package cache
 
-import (
-	"fpay/cache"
-	"net"
+const (
+	READY uint8 = iota
 )
 
-type Node struct {
-	ip net.IP
+type Cache struct {
+	MessageOut chan uint8
+}
+
+func New() (cache *Cache, err error) {
+	cache = new(Cache)
+	cache.MessageOut = make(chan uint8)
+	return cache, nil
+}
+
+func (this *Cache) Startup() {
+
+}
+
+func (this *Cache) Shutdown() {
+
 }
