@@ -52,11 +52,6 @@ func main() {
 	ms.Startup()
 	defer ms.Shutdown()
 
-	select {
-	case <-osSignal:
-		return
-	}
-	if err != nil {
-		panic("FPAY service startup failed: " + err.Error())
-	}
+	<-osSignal
+	return
 }
