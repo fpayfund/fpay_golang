@@ -32,6 +32,8 @@ import (
 )
 
 func main() {
+	zlog.SetLevel(zlog.INFO)
+
 	settings, err := cli.Parse()
 
 	if err != nil {

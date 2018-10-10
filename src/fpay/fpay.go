@@ -26,6 +26,7 @@ import (
 	"fpay/cli"
 	"fpay/datasource"
 	"fpay/monitor"
+	"time"
 	"zlog"
 )
 
@@ -61,27 +62,27 @@ func (this *FPAY) starting() {
 }
 
 func (this *FPAY) bookkeeper() {
-	zlog.Infoln("BOOKKEEPER")
+	zlog.Traceln("BOOKKEEPER")
 }
 
 func (this *FPAY) reviewer() {
-	zlog.Infoln("REVIEWER")
+	zlog.Traceln("REVIEWER")
 }
 
 func (this *FPAY) transferer() {
-	zlog.Infoln("TRANSFERER")
+	zlog.Traceln("TRANSFERER")
 }
 
 func (this *FPAY) receiver() {
-	zlog.Infoln("RECEIVER")
+	zlog.Traceln("RECEIVER")
 }
 
 func (this *FPAY) payer() {
-	zlog.Infoln("PAYER")
+	zlog.Traceln("PAYER")
 }
 
 func (this *FPAY) shutting() {
-	zlog.Infoln("SHUTTING")
+	zlog.Traceln("SHUTTING")
 	this.out <- 0
 }
 
@@ -90,7 +91,7 @@ func (this *FPAY) loop() {
 		select {
 		case <-this.in:
 			this.state = SHUTTING
-		default:
+		case <-time.After(200 * time.Millisecond):
 			switch this.state {
 			case STARTING:
 				this.starting()
@@ -107,7 +108,7 @@ func (this *FPAY) loop() {
 			case SHUTTING:
 				this.shutting()
 			default:
-				zlog.Errorln("Wrong state")
+				zlog.Warningf("Wrong state: %u\n", this.state)
 			}
 		}
 	}
