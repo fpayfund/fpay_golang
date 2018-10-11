@@ -22,9 +22,43 @@ DEALINGS IN THE SOFTWARE.
 
 package cli
 
+import (
+	"os"
+	"strings"
+	"zlog"
+)
+
 type Settings struct {
+	Args    []string
+	TCPAddr string
 }
 
+// 命令行参数解释
+// -T:  tcp协议监听地址
+//      用法: -T0.0.0.0:8080 或者 -T 0.0.0.0:8080
 func Parse() (settings *Settings, err error) {
-	return nil, nil
+	settings = new(Settings)
+	settings.Args = os.Args
+
+	// TODO: 正式解释参数
+	for i := 0; i < len(settings.Args); i++ {
+		arg := settings.Args[i]
+		l := len(arg)
+
+		if i == 0 || l <= 1 || (!strings.HasPrefix(arg, "-")) {
+			continue
+		}
+
+		switch []byte(arg)[1] {
+		case []byte("T")[0]:
+			if l == 2 {
+				i++
+				settings.TCPAddr = settings.Args[i]
+			} else {
+				settings.TCPAddr = string([]byte(arg)[2:l])
+			}
+			zlog.Tracef("settings.TCPAddr=%s\n", settings.TCPAddr)
+		}
+	}
+	return
 }

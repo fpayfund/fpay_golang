@@ -40,6 +40,8 @@ const (
 	FATAL                /* 崩溃信息(无法继续提供服务) */
 )
 
+var LogLevelNames [7]string = [7]string{"VERBOSE", "TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "FATAL"}
+
 var (
 	globalLevel  uint8            = VERBOSE                /* 全局日志级别 */
 	loggerLevels map[string]uint8 = make(map[string]uint8) /* 指定标志日志级别 */
@@ -53,20 +55,21 @@ func SetLevel(level uint8) {
 
 /* 指定具体标志的日志级别，应小于全局级别 */
 /* 结合SetLevel，可以只输出指定标志的日志 */
-func SetTagLevel(level uint8, tag string) {
+func SetTagLevel(level uint8, tags ...string) {
 	mu.Lock()
-	loggerLevels[tag] = level
+	for _, tag := range tags {
+		loggerLevels[tag] = level
+	}
 	mu.Unlock()
 }
 
 func logf(level uint8, format string, v ...interface{}) {
 	callers := make([]uintptr, 1)
-	runtime.Callers(1, callers)
+	runtime.Callers(4, callers)
 	caller := runtime.FuncForPC(callers[0])
 	peices := strings.Split(caller.Name(), ".")
 	size := len(peices)
-	pkg := strings.Join(peices[:size-1], ".")
-
+	pkg := strings.Join(peices[:size-1], "/")
 	tagLevel, ok := loggerLevels[pkg]
 	if !ok {
 		tagLevel = globalLevel
@@ -74,7 +77,16 @@ func logf(level uint8, format string, v ...interface{}) {
 
 	if level >= tagLevel {
 		method := peices[size-1]
-		log.Printf(fmt.Sprintf("[%s: %s] %s", peices[size-2], method, fmt.Sprintf(format, v...)))
+		switch level {
+		case VERBOSE, TRACE, DEBUG:
+			log.Printf(fmt.Sprintf("[%c[1;32m%s%c[0m][%s: %s] %s", 0x1B, LogLevelNames[level], 0x1B, peices[size-2], method, fmt.Sprintf(format, v...)))
+		case INFO, WARNING:
+			log.Printf(fmt.Sprintf("[%c[1;37m%s%c[0m][%s: %s] %s", 0x1B, LogLevelNames[level], 0x1B, peices[size-2], method, fmt.Sprintf(format, v...)))
+		case ERROR, FATAL:
+			log.Printf(fmt.Sprintf("[%c[1;31m%s%c[0m][%s: %s] %s", 0x1B, LogLevelNames[level], 0x1B, peices[size-2], method, fmt.Sprintf(format, v...)))
+		default:
+			log.Printf(fmt.Sprintf("[%s][%s: %s] %s", LogLevelNames[level], peices[size-2], method, fmt.Sprintf(format, v...)))
+		}
 	}
 }
 
@@ -84,7 +96,7 @@ func logln(level uint8, v ...interface{}) {
 	caller := runtime.FuncForPC(callers[0])
 	peices := strings.Split(caller.Name(), ".")
 	size := len(peices)
-	pkg := strings.Join(peices[:size-1], ".")
+	pkg := strings.Join(peices[:size-1], "/")
 
 	tagLevel, ok := loggerLevels[pkg]
 	if !ok {
@@ -93,7 +105,16 @@ func logln(level uint8, v ...interface{}) {
 
 	if level >= tagLevel {
 		method := peices[size-1]
-		log.Printf(fmt.Sprintf("[%s: %s] %s", peices[size-2], method, fmt.Sprintln(v...)))
+		switch level {
+		case VERBOSE, TRACE, DEBUG:
+			log.Printf(fmt.Sprintf("[%c[1;32m%s%c[0m][%s: %s] %s", 0x1B, LogLevelNames[level], 0x1B, peices[size-2], method, fmt.Sprintln(v...)))
+		case INFO, WARNING:
+			log.Printf(fmt.Sprintf("[%c[1;37m%s%c[0m][%s: %s] %s", 0x1B, LogLevelNames[level], 0x1B, peices[size-2], method, fmt.Sprintln(v...)))
+		case ERROR, FATAL:
+			log.Printf(fmt.Sprintf("[%c[1;31m%s%c[0m][%s: %s] %s", 0x1B, LogLevelNames[level], 0x1B, peices[size-2], method, fmt.Sprintln(v...)))
+		default:
+			log.Printf(fmt.Sprintf("[%s][%s: %s] %s", LogLevelNames[level], peices[size-2], method, fmt.Sprintln(v...)))
+		}
 	}
 }
 

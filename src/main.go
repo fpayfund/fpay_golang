@@ -33,6 +33,7 @@ import (
 
 func main() {
 	zlog.SetLevel(zlog.INFO)
+	zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
 
 	settings, err := cli.Parse()
 
