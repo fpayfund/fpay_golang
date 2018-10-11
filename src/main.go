@@ -50,8 +50,16 @@ func main() {
 
 	// TODO: 设置settings参数
 
-	fpayService := fpay.New(settings)
-	fpayService.Startup()
+	fpayService, err := fpay.New(settings)
+	if err != nil {
+		return
+	}
+
+	err = fpayService.Startup()
+	if err != nil {
+		return
+	}
+
 	defer fpayService.Shutdown()
 
 	<-osSignal

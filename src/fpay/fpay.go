@@ -25,6 +25,7 @@ package fpay
 import (
 	"fpay/cli"
 	"fpay/datasource"
+	"fpay/listener"
 	"fpay/monitor"
 	"net"
 	"time"
@@ -63,7 +64,7 @@ type FPAY struct {
 	//     顶级传送者状态。负责汇集请求，提交给评审者，同时广播。顶级传送者可以审核整个出块者和评审者的工作业绩
 
 	//   RECEIVER:
-	//     传送者状态。负责汇集请求，提交给上级传送者，同时广播
+	//     接收者状态。负责汇集请求，提交给上级传送者，同时广播。接收者更多接受支付者的请求，并需要根据支付者的订阅返回信息
 
 	//   PAYER:
 	//     支付者状态。负责提交请求。只接收与自己相关的信息
@@ -73,8 +74,7 @@ type FPAY struct {
 	settings                                *cli.Settings
 	datasource                              *datasource.DataSource
 	monitor                                 *monitor.Monitor
-	tcpAddr                                 *net.TCPAddr
-	tcpListener                             *net.TCPListener
+	listener                                *listener.Listener
 	tcpConnections                          []*net.TCPConn
 }
 
@@ -91,9 +91,14 @@ var baseNodes = []string{
 	"127.0.0.1:8088",
 	"127.0.0.1:8089"}
 
-func New(settings *cli.Settings) (fs *FPAY) {
+func New(settings *cli.Settings) (fs *FPAY, err error) {
 	fs = new(FPAY)
 	fs.settings = settings
+	fs.listener, err = listener.New(settings.TCPAddr)
+	if err != nil {
+		return
+	}
+
 	fs.in = make(chan uint8, 1)
 	fs.out = make(chan uint8, 1)
 	fs.datasource = datasource.New(settings)
@@ -186,24 +191,15 @@ func (this *FPAY) Startup() (err error) {
 		}
 	}()
 
-	this.tcpAddr, err = net.ResolveTCPAddr("tcp", this.settings.TCPAddr)
+	err = this.listener.Startup()
 	if err != nil {
-		zlog.Fatalf("TCP address %s resolution failed.\n", this.settings.TCPAddr)
-		return
-	}
-
-	this.tcpListener, err = net.ListenTCP("tcp", this.tcpAddr)
-	if err != nil {
-		zlog.Fatalf("TCP address %s listening failed.\n", this.settings.TCPAddr)
 		return
 	}
 	defer func() {
 		if err != nil {
-			this.tcpListener.Close()
+			this.listener.Shutdown()
 		}
 	}()
-
-	zlog.Debugf("TCP listener at %s started.\n", this.settings.TCPAddr)
 
 	go this.loop()
 	return
@@ -212,12 +208,8 @@ func (this *FPAY) Startup() (err error) {
 func (this *FPAY) Shutdown() {
 	zlog.Infoln("FPAY service is Shutting down.")
 
-	if this.tcpListener != nil {
-		this.tcpListener.Close()
-		zlog.Debugf("TCP listener at %s closed.\n", this.settings.TCPAddr)
-	}
-
 	defer zlog.Traceln("FPAY service already closed.")
+	defer this.listener.Shutdown()
 	defer this.datasource.Shutdown()
 	defer this.monitor.Shutdown()
 
