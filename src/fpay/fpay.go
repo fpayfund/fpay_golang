@@ -25,8 +25,8 @@ package fpay
 import (
 	"fpay/cli"
 	"fpay/datasource"
-	"fpay/listener"
 	"fpay/monitor"
+	"fpay/server"
 	"net"
 	"time"
 	"zlog"
@@ -74,7 +74,7 @@ type FPAY struct {
 	settings                                *cli.Settings
 	datasource                              *datasource.DataSource
 	monitor                                 *monitor.Monitor
-	listener                                *listener.Listener
+	server                                  *server.Server
 	tcpConnections                          []*net.TCPConn
 }
 
@@ -94,7 +94,7 @@ var baseNodes = []string{
 func New(settings *cli.Settings) (fs *FPAY, err error) {
 	fs = new(FPAY)
 	fs.settings = settings
-	fs.listener, err = listener.New(settings.TCPAddr)
+	fs.server, err = server.New(settings.TCPAddr)
 	if err != nil {
 		return
 	}
@@ -191,13 +191,13 @@ func (this *FPAY) Startup() (err error) {
 		}
 	}()
 
-	err = this.listener.Startup()
+	err = this.server.Startup()
 	if err != nil {
 		return
 	}
 	defer func() {
 		if err != nil {
-			this.listener.Shutdown()
+			this.server.Shutdown()
 		}
 	}()
 
@@ -209,7 +209,7 @@ func (this *FPAY) Shutdown() {
 	zlog.Infoln("FPAY service is Shutting down.")
 
 	defer zlog.Traceln("FPAY service already closed.")
-	defer this.listener.Shutdown()
+	defer this.server.Shutdown()
 	defer this.datasource.Shutdown()
 	defer this.monitor.Shutdown()
 

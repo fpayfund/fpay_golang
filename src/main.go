@@ -25,15 +25,18 @@ package main
 import (
 	"fpay"
 	"fpay/cli"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 	"zlog"
 )
 
 func main() {
-	zlog.SetLevel(zlog.INFO)
-	zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
+	//zlog.SetLevel(zlog.INFO)
+	//zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
+	rand.Seed(time.Now().UnixNano())
 
 	settings, err := cli.Parse()
 
