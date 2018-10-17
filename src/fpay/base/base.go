@@ -41,8 +41,8 @@ var PROTOCOL_NAME string = "FPAY"
 var PROTOCOL_VERSION []byte = []byte{0, 0, 1, 0}
 
 // 初始化Core，给子类使用
-func (this *Base) Init(protocol []byte) {
-	this.Protocol = protocol
+func (this *Base) Init(s string) {
+	this.Protocol = []byte(s)
 	this.Name = []byte(PROTOCOL_NAME)
 	this.Version = PROTOCOL_VERSION
 
@@ -54,25 +54,27 @@ func (this *Base) Init(protocol []byte) {
 }
 
 // 创建一个Core
-func New(protocol []byte) (c *Base) {
+func New(s string) (c *Base) {
 	c = new(Base)
-	c.Init(protocol)
+	c.Init(s)
 	return
 }
 
 // 反序列化，给子类使用
 func Unmarshal(reader io.Reader) (c *Base, err error) {
-	buf := make([]byte, 72)
-	c = new(Base)
-
+	buf := make([]byte, 56)
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {
+		zlog.Warningln("io.ReadFull failed: " + err.Error())
 		return
 	}
 
+	c = new(Base)
 	c.Name = buf[:4]
-	if string(c.Name) != PROTOCOL_NAME {
-		errors.New("Unsupport protocol.")
+	name := string(c.Name)
+	if name != PROTOCOL_NAME {
+		errors.New("Unsupport protocol: " + name)
+		zlog.Warningf("Wrong c.Name: [%v %v %v %v].\n", c.Name[0], c.Name[1], c.Name[2], c.Name[3])
 		return
 	}
 

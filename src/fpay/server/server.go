@@ -62,6 +62,8 @@ var STATE_NAMES []string = []string{"CMD_SHUT", "STATE_READY", "STATE_DONE", "ST
 func New(addr string) (s *Server, err error) {
 	s = new(Server)
 	s.state = make(chan uint8, 1)
+	s.conns = make(map[*net.TCPConn]chan uint8, 100)
+	s.handlers = make(map[string]Handler, 100)
 
 	s.tcpAddr, err = net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
@@ -90,18 +92,19 @@ func (this *Server) ReaderLoop(conn *net.TCPConn, state chan uint8) {
 				}
 				break
 			}
+			zlog.Traceln(c)
+			/*
+				protocol := string(c.Protocol)
+				handler, ok := this.handlers[protocol]
+				if !ok {
+					zlog.Warningln("Unspport protocol: " + protocol)
+				}
 
-			protocol := string(c.Protocol)
-			handler, ok := this.handlers[protocol]
-			if !ok {
-				zlog.Warningln("Unspport protocol: " + protocol)
-			}
-
-			err = handler.Handle(conn)
-			if err != nil {
-				break
-			}
-
+				err = handler.Handle(conn)
+				if err != nil {
+					break
+				}
+			*/
 			// 暂时没可读数据，延长检查时间
 			// 平均会造成2.5毫秒左右的处理延时
 			// TODO: 该参数应该可以根据不同角色实现动态调整
@@ -115,11 +118,16 @@ func (this *Server) AcceptorLoop() {
 	zlog.Debugln("AcceptorLoop is starting.\n")
 	defer zlog.Debugln("AcceptorLoop closed.\n")
 	var saddr string
-	for et := time.Now().Add(10 * time.Millisecond); time.Now().Before(et); {
+	for {
 		select {
 		case state := <-this.state:
 			zlog.Tracef("%s received.\n", STATE_NAMES[state])
-			break
+			switch state {
+			case CMD_SHUT:
+				break
+			default:
+				continue
+			}
 		default:
 			conn, err := this.tcpListener.AcceptTCP()
 			if conn == nil {
@@ -140,6 +148,7 @@ func (this *Server) AcceptorLoop() {
 
 			go this.ReaderLoop(conn, s)
 		}
+		<-time.After(10 * time.Millisecond)
 	}
 }
 
