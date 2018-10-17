@@ -40,6 +40,6 @@ main:
 	$(GOBUILD) main
 	$(GOINSTALL) main
 
-fpay: zlog main
+fpay: zlog
 	$(GOBUILD) fpay
 	$(GOINSTALL) fpay

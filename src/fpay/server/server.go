@@ -23,6 +23,7 @@ DEALINGS IN THE SOFTWARE.
 package server
 
 import (
+	"fpay/base"
 	"io"
 	"math/rand"
 	"net"
@@ -31,7 +32,7 @@ import (
 )
 
 type Handler interface {
-	Handle(buf []byte)
+	Handle(rw io.ReadWriter) (err error)
 	Close()
 }
 
@@ -46,7 +47,7 @@ type Server struct {
 	conns       map[*net.TCPConn]chan uint8
 	tcpAddr     *net.TCPAddr
 	tcpListener *net.TCPListener
-	handler     Handler
+	handlers    map[string]Handler
 }
 
 const (
@@ -72,13 +73,9 @@ func New(addr string) (s *Server, err error) {
 func (this *Server) ReaderLoop(conn *net.TCPConn, state chan uint8) {
 	saddr := conn.RemoteAddr().String()
 	zlog.Debugf("ReaderLoop for %s is starting.\n", saddr)
-	defer zlog.Debugf("ReaderLoop for %s closed.\n", saddr)
+	defer zlog.Debugf("Connection for %s closed.\n", saddr)
+	defer conn.Close()
 
-	// 每连接64k读缓存
-	// TODO: 后续应该可以根据角色更改
-	buf := make([]byte, 64*1024, 64*1024)
-	var l int
-	var err error
 	var s uint8
 	for {
 		select {
@@ -86,22 +83,29 @@ func (this *Server) ReaderLoop(conn *net.TCPConn, state chan uint8) {
 			zlog.Tracef("%s received.\n", STATE_NAMES[s])
 			break
 		default:
-			l, err = conn.Read(buf)
-			if l != 0 {
-				this.handler.Handle(buf[:l])
-			}
-
-			if err == io.EOF {
-				this.handler.Close()
+			c, err := base.Unmarshal(conn)
+			if err != nil {
+				if err != io.EOF {
+					zlog.Warningln("Failed to unmarshal: " + err.Error())
+				}
 				break
 			}
 
-			if l != 64*1024 {
-				// 暂时没可读数据，延长检查时间
-				// 平均会造成2.5毫秒左右的处理延时
-				// TODO: 该参数应该可以根据不同角色实现动态调整
-				<-time.After(time.Duration(rand.Intn(10*1000*1000)) * time.Nanosecond)
+			protocol := string(c.Protocol)
+			handler, ok := this.handlers[protocol]
+			if !ok {
+				zlog.Warningln("Unspport protocol: " + protocol)
 			}
+
+			err = handler.Handle(conn)
+			if err != nil {
+				break
+			}
+
+			// 暂时没可读数据，延长检查时间
+			// 平均会造成2.5毫秒左右的处理延时
+			// TODO: 该参数应该可以根据不同角色实现动态调整
+			<-time.After(time.Duration(rand.Intn(10*1000*1000)) * time.Nanosecond)
 		}
 	}
 	state <- STATE_CLOSED
@@ -137,6 +141,22 @@ func (this *Server) AcceptorLoop() {
 			go this.ReaderLoop(conn, s)
 		}
 	}
+}
+
+func (this *Server) FinderLoop() {
+
+}
+
+func (this *Server) TransferLoop() {
+
+}
+
+func (this *Server) ReceiverLoop() {
+
+}
+
+func (this *Server) BroadcasterLoop() {
+
 }
 
 func (this *Server) Startup() (err error) {
