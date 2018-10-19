@@ -92,14 +92,13 @@ var Officers = []string{
 func New(settings *cli.Settings) (fs *FPAY, err error) {
 	fs = new(FPAY)
 	fs.settings = settings
-	fs.server, err = server.New(settings.TCPAddr)
+	fs.server, err = server.New(settings.TCPAddr, Officers)
 	if err != nil {
 		return
 	}
 
 	fs.in = make(chan uint8, 1)
 	fs.out = make(chan uint8, 1)
-	fs.datasource = datasource.New(settings)
 	fs.monitor = monitor.New(settings)
 	fs.nodes = make([]string, 100)
 	fs.availableNodes = make([]string, 50)
@@ -175,13 +174,6 @@ func (this *FPAY) loop() {
 func (this *FPAY) Startup() (err error) {
 	zlog.Infoln("FPAY service is starting up.")
 
-	this.datasource.Startup()
-	defer func() {
-		if err != nil {
-			this.datasource.Shutdown()
-		}
-	}()
-
 	this.monitor.Startup()
 	defer func() {
 		if err != nil {
@@ -208,7 +200,6 @@ func (this *FPAY) Shutdown() {
 
 	defer zlog.Traceln("FPAY service already closed.")
 	defer this.server.Shutdown()
-	defer this.datasource.Shutdown()
 	defer this.monitor.Shutdown()
 
 	this.in <- 0

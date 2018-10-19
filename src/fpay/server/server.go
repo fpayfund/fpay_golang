@@ -25,7 +25,7 @@ package server
 import (
 	"container/list"
 	"fpay/base"
-	"github.com/go-redis/redis"
+	//"github.com/go-redis/redis"
 	"io"
 	"math/rand"
 	"net"
@@ -245,12 +245,9 @@ func (this *Server) acceptorLoop() {
 			}
 		default:
 			conn, err := this.tcpListener.AcceptTCP()
-			saddr = conn.RemoteAddr().String()
 			if err != nil {
-				zlog.Warningf("Connection from %s failed: %s.\n", saddr, err.Error())
-				conn.Close()
-				zlog.Debugf("Connection %s closed.\n", saddr)
-				continue
+				zlog.Debugln("Connection closed.")
+				break
 			}
 
 			addr, err := net.ResolveTCPAddr("tcp", saddr)
@@ -302,13 +299,12 @@ func (this *Server) finderLoop() {
 
 			p.conn, err = net.DialTCP("tcp", nil, p.addr)
 			if err != nil {
-				p.conn.Close()
 				p.lastState = PARENT_STATE_UNAVAILABLE
 				this.unusedParents.PushBack(p)
 				continue
 			}
 
-			go this.receiverLoop(p)
+			go this.preparedLoop(p)
 		}
 
 		<-time.After(500 * time.Millisecond)
