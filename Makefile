@@ -1,6 +1,7 @@
 .PHONY: clean
 
-GOCMD=go
+GOPATH=$(PWD)
+GOCMD=$(GOPATH) go
 GOBUILD=$(GOCMD) build
 GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
@@ -31,6 +32,7 @@ run:
 	$(GOBUILD) -o $(BINARY_NAME) -v ./...
 	./$(BINARY_NAME)
 deps:
+	$(GOGET) -u github.com/go-redis/redis
 
 zlog:
 	$(GOBUILD) zlog

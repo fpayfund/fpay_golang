@@ -24,6 +24,7 @@ package server
 
 import (
 	"fpay/base"
+	"github.com/go-redis/redis"
 	"io"
 	"math/rand"
 	"net"
@@ -36,18 +37,27 @@ type Handler interface {
 	Close()
 }
 
-type Connection struct {
+type Worker struct {
 	state chan uint8
-	conn  *net.Conn
-	buf   []byte
+	conn  *net.TCPConn
+}
+
+func newWorker(conn *net.TCPConn) (w *Worker) {
+	w = new(Worker)
+	w.state = make(chan uint8, 1)
+	w.conn = conn
+	return
 }
 
 type Server struct {
-	state       chan uint8
-	conns       map[*net.TCPConn]chan uint8
-	tcpAddr     *net.TCPAddr
-	tcpListener *net.TCPListener
-	handlers    map[string]Handler
+	state           chan uint8
+	workers         map[*net.TCPConn]*Worker
+	children        map[*net.TCPConn]*Worker
+	parent          *Worker
+	reservedParents []*Worker
+	tcpAddr         *net.TCPAddr
+	tcpListener     *net.TCPListener
+	handlers        map[string]Handler
 }
 
 const (
@@ -62,7 +72,8 @@ var STATE_NAMES []string = []string{"CMD_SHUT", "STATE_READY", "STATE_DONE", "ST
 func New(addr string) (s *Server, err error) {
 	s = new(Server)
 	s.state = make(chan uint8, 1)
-	s.conns = make(map[*net.TCPConn]chan uint8, 100)
+	s.workers = make(map[*net.TCPConn]*Worker, 100)
+	s.children = make(map[*net.TCPConn]*Worker, 100)
 	s.handlers = make(map[string]Handler, 100)
 
 	s.tcpAddr, err = net.ResolveTCPAddr("tcp", addr)
@@ -72,7 +83,7 @@ func New(addr string) (s *Server, err error) {
 	return
 }
 
-func (this *Server) ReaderLoop(conn *net.TCPConn, state chan uint8) {
+func (this *Server) RequestLoop(conn *net.TCPConn, w *Worker) {
 	saddr := conn.RemoteAddr().String()
 	zlog.Debugf("ReaderLoop for %s is starting.\n", saddr)
 	defer zlog.Debugf("Connection for %s closed.\n", saddr)
@@ -81,7 +92,7 @@ func (this *Server) ReaderLoop(conn *net.TCPConn, state chan uint8) {
 	var s uint8
 	for {
 		select {
-		case s = <-state:
+		case s = <-w.state:
 			zlog.Tracef("%s received.\n", STATE_NAMES[s])
 			break
 		default:
@@ -111,7 +122,70 @@ func (this *Server) ReaderLoop(conn *net.TCPConn, state chan uint8) {
 			<-time.After(time.Duration(rand.Intn(10*1000*1000)) * time.Nanosecond)
 		}
 	}
-	state <- STATE_CLOSED
+	w.state <- STATE_CLOSED
+}
+
+func (this *Server) checkAcceptable(addr net.Addr) (isAcceptable bool) {
+	// TODO: 检查该客户是否满足建立连接的条件
+	return true
+}
+
+func (this *Server) sendRecommendationList(conn *net.TCPConn) {
+	// TODO: 发送推荐列表
+}
+
+func (this *Server) createChild(conn *net.TCPConn) {
+	w := newWorker(conn)
+	this.children[conn] = w
+	go this.RequestLoop(conn, w)
+}
+
+func (this *Server) releaseAll() {
+	var saddr string
+
+	zlog.Debugln("Children is going to be released.")
+	for _, w := range this.children {
+		w.state <- CMD_SHUT
+		zlog.Traceln("CMD_SHUT is sended to %s" + w.conn.RemoteAddr().String())
+	}
+
+	zlog.Debugln("Parents is going to be released.")
+	for _, w := range this.reservedParents {
+		w.state <- CMD_SHUT
+		zlog.Traceln("CMD_SHUT is sended to %s" + w.conn.RemoteAddr().String())
+	}
+
+	for _, w := range this.children {
+		select {
+		case s := <-w.state:
+			if s == STATE_CLOSED {
+				saddr = w.conn.RemoteAddr().String()
+
+				zlog.Traceln("STATE_CLOSED is received from %s" + saddr)
+				w.conn.Close()
+				zlog.Tracef("Connection %s closed.\n", saddr)
+			}
+		default:
+			<-time.After(10 * time.Millisecond)
+		}
+	}
+	zlog.Debugln("All children released.")
+
+	for _, w := range this.reservedParents {
+		select {
+		case s := <-w.state:
+			if s == STATE_CLOSED {
+				saddr = w.conn.RemoteAddr().String()
+
+				zlog.Traceln("STATE_CLOSED is received from %s" + saddr)
+				w.conn.Close()
+				zlog.Tracef("Connection %s closed.\n", saddr)
+			}
+		default:
+			<-time.After(10 * time.Millisecond)
+		}
+	}
+	zlog.Debugln("All parents released.")
 }
 
 func (this *Server) AcceptorLoop() {
@@ -130,26 +204,27 @@ func (this *Server) AcceptorLoop() {
 			}
 		default:
 			conn, err := this.tcpListener.AcceptTCP()
-			if conn == nil {
-				break
-			}
-
 			saddr = conn.RemoteAddr().String()
-
 			if err != nil {
-				zlog.Warningf("%s connect failed: %s.\n", saddr, err.Error())
+				zlog.Warningf("Connection from %s failed: %s.\n", saddr, err.Error())
 				conn.Close()
-				zlog.Debugf("%s connection closed.\n", saddr)
+				zlog.Debugf("Connection %s closed.\n", saddr)
 				continue
 			}
 
-			s := make(chan uint8, 1)
-			this.conns[conn] = s
+			ok := this.checkAcceptable(conn.RemoteAddr())
+			if !ok {
+				this.sendRecommendationList(conn)
+				continue
+			}
 
-			go this.ReaderLoop(conn, s)
+			this.createChild(conn)
 		}
+
 		<-time.After(10 * time.Millisecond)
 	}
+
+	this.releaseAll()
 }
 
 func (this *Server) FinderLoop() {
@@ -184,6 +259,7 @@ func (this *Server) Startup() (err error) {
 	zlog.Traceln("STATE_READY send to main.")
 
 	go this.AcceptorLoop()
+	go this.FinderLoop()
 
 	return
 }

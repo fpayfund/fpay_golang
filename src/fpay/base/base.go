@@ -40,7 +40,7 @@ type Base struct {
 var PROTOCOL_NAME string = "FPAY"
 var PROTOCOL_VERSION []byte = []byte{0, 0, 1, 0}
 
-// 初始化Core，给子类使用
+// 初始化Base，给子类使用
 func (this *Base) Init(s string) {
 	this.Protocol = []byte(s)
 	this.Name = []byte(PROTOCOL_NAME)

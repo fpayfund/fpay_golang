@@ -24,7 +24,6 @@ package fpay
 
 import (
 	"fpay/cli"
-	"fpay/datasource"
 	"fpay/monitor"
 	"fpay/server"
 	"net"
@@ -72,7 +71,6 @@ type FPAY struct {
 	in, out                                 chan uint8 // 命令输入、输出队列
 	nodes, availableNodes, unavailableNodes []string   // 节点，可用节点，不可用节点
 	settings                                *cli.Settings
-	datasource                              *datasource.DataSource
 	monitor                                 *monitor.Monitor
 	server                                  *server.Server
 	tcpConnections                          []*net.TCPConn

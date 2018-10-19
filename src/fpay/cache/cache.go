@@ -28,6 +28,8 @@ const (
 
 type Cache struct {
 	MessageOut chan uint8
+	options    *redis.Options
+	client     *redis.Client
 }
 
 func New() (cache *Cache, err error) {
