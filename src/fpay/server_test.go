@@ -1,4 +1,4 @@
-package server
+package fpay
 
 import (
 	"fpay/base"

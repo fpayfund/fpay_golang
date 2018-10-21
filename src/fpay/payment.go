@@ -20,15 +20,11 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package payment
-
-import (
-	"fpay/core"
-)
+package fpay
 
 // 1.1.4. 支付请求
 type Payment struct {
-	core.Core
+	Core
 	version            [4]byte  /* 协议版本，结合协议类型确定协议处理方式 */
 	encryption         uint16   /* 加密类型，确定PublicKey和Signature处理方式 */
 	from               [20]byte /* 支付发起者地址 */

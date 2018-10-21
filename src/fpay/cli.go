@@ -20,50 +20,45 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package main
+package fpay
 
 import (
-	"fpay"
-	"math/rand"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"strings"
 	"zlog"
 )
 
-func main() {
-	//zlog.SetLevel(zlog.INFO)
-	//zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
-	rand.Seed(time.Now().UnixNano())
+type Settings struct {
+	Args    []string
+	TCPAddr string
+}
 
-	settings, err := fpay.Parse()
+// 命令行参数解释
+// -T:  tcp协议监听地址
+//      用法: -T0.0.0.0:8080 或者 -T 0.0.0.0:8080
+func Parse() (settings *Settings, err error) {
+	settings = new(Settings)
+	settings.Args = os.Args
 
-	if err != nil {
-		panic("Commandline params parse failed: " + err.Error())
+	// TODO: 正式解释参数
+	for i := 0; i < len(settings.Args); i++ {
+		arg := settings.Args[i]
+		l := len(arg)
+
+		if i == 0 || l <= 1 || (!strings.HasPrefix(arg, "-")) {
+			continue
+		}
+
+		switch []byte(arg)[1] {
+		case []byte("T")[0]:
+			if l == 2 {
+				i++
+				settings.TCPAddr = settings.Args[i]
+			} else {
+				settings.TCPAddr = string([]byte(arg)[2:l])
+			}
+			zlog.Tracef("settings.TCPAddr=%s\n", settings.TCPAddr)
+		}
 	}
-
-	zlog.Infoln("FPAY is starting up.")
-	defer zlog.Infoln("FPAY is shutdown.")
-
-	osSignal := make(chan os.Signal)
-	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
-	defer signal.Stop(osSignal)
-
-	// TODO: 设置settings参数
-
-	fpayService, err := fpay.New(settings)
-	if err != nil {
-		return
-	}
-
-	err = fpayService.Startup()
-	if err != nil {
-		return
-	}
-
-	defer fpayService.Shutdown()
-
-	<-osSignal
 	return
 }

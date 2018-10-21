@@ -23,9 +23,6 @@ DEALINGS IN THE SOFTWARE.
 package fpay
 
 import (
-	"fpay/cli"
-	"fpay/monitor"
-	"fpay/server"
 	"net"
 	"time"
 	"zlog"
@@ -70,15 +67,14 @@ type FPAY struct {
 	state                                   uint8
 	in, out                                 chan uint8 // 命令输入、输出队列
 	nodes, availableNodes, unavailableNodes []string   // 节点，可用节点，不可用节点
-	settings                                *cli.Settings
-	monitor                                 *monitor.Monitor
-	server                                  *server.Server
+	settings                                *Settings
+	server                                  *Server
 	tcpConnections                          []*net.TCPConn
 }
 
 // FPAY官方启动节点
 var Officers = []string{
-	"127.0.0.1:8080",
+	//	"127.0.0.1:8080",
 	"127.0.0.1:8081",
 	"127.0.0.1:8082",
 	"127.0.0.1:8083",
@@ -89,26 +85,17 @@ var Officers = []string{
 	"127.0.0.1:8088",
 	"127.0.0.1:8089"}
 
-func New(settings *cli.Settings) (fs *FPAY, err error) {
+func New(settings *Settings) (fs *FPAY, err error) {
 	fs = new(FPAY)
 	fs.settings = settings
-	fs.server, err = server.New(settings.TCPAddr, Officers)
-	if err != nil {
-		return
-	}
-
-	fs.in = make(chan uint8, 1)
-	fs.out = make(chan uint8, 1)
-	fs.monitor = monitor.New(settings)
-	fs.nodes = make([]string, 100)
-	fs.availableNodes = make([]string, 50)
-	fs.unavailableNodes = make([]string, 10)
+	fs.server = NewServer(settings.TCPAddr, Officers)
+	fs.in = make(chan uint8)
+	fs.out = make(chan uint8)
 	return
 }
 
 func (this *FPAY) starting() {
 	zlog.Traceln("STARTING")
-
 }
 
 func (this *FPAY) bookkeeper() {
@@ -174,13 +161,6 @@ func (this *FPAY) loop() {
 func (this *FPAY) Startup() (err error) {
 	zlog.Infoln("FPAY service is starting up.")
 
-	this.monitor.Startup()
-	defer func() {
-		if err != nil {
-			this.monitor.Shutdown()
-		}
-	}()
-
 	err = this.server.Startup()
 	if err != nil {
 		return
@@ -200,7 +180,6 @@ func (this *FPAY) Shutdown() {
 
 	defer zlog.Traceln("FPAY service already closed.")
 	defer this.server.Shutdown()
-	defer this.monitor.Shutdown()
 
 	this.in <- 0
 }

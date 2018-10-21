@@ -20,50 +20,32 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package main
+package fpay
 
 import (
-	"fpay"
-	"math/rand"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-	"zlog"
+	"net"
 )
 
-func main() {
-	//zlog.SetLevel(zlog.INFO)
-	//zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
-	rand.Seed(time.Now().UnixNano())
+type Receiver struct {
+	Core
+	conn *net.TCPConn
+}
 
-	settings, err := fpay.Parse()
-
-	if err != nil {
-		panic("Commandline params parse failed: " + err.Error())
-	}
-
-	zlog.Infoln("FPAY is starting up.")
-	defer zlog.Infoln("FPAY is shutdown.")
-
-	osSignal := make(chan os.Signal)
-	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
-	defer signal.Stop(osSignal)
-
-	// TODO: 设置settings参数
-
-	fpayService, err := fpay.New(settings)
-	if err != nil {
-		return
-	}
-
-	err = fpayService.Startup()
-	if err != nil {
-		return
-	}
-
-	defer fpayService.Shutdown()
-
-	<-osSignal
+func NewReceiver(conn *net.TCPConn) (rcv *Receiver) {
+	rcv = new(Receiver)
+	rcv.conn = conn
 	return
 }
+
+// 需要重写
+func (this *Receiver) PreLoop() (err error) {
+	return nil
+}
+
+// 需要重写
+func (this *Receiver) Loop() (isContinue bool) {
+	return true
+}
+
+// 需要重写
+func (this *Receiver) AftLoop() {}

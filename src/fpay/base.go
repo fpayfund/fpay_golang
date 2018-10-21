@@ -20,36 +20,35 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package confirmation
+package fpay
 
-// 1.1.2. 确认请求
-type Confirmation struct {
-	encryptType              uint16   /* 加密类型，确定PublicKey和Signature处理方式 */
-	version                  [4]byte  /* 协议版本，确定确认的处理方式 */
-	address                  [20]byte /* 工作节点地址 */
-	publicKey                [64]byte /* 工作节点公钥 */
-	blockNounce              uint64   /* 工作节点区块高度 */
-	balanceSnapshot          uint64   /* 余额快照，工作节点的查询结果 */
-	balanceBlockNounce       uint64   /* 余额快照对应的区块高度 */
-	toBalanceSnapshot        uint64   /* 接收节点余额快照，工作节点的查询结果 */
-	toBalanceBlockNounce     uint64   /* 接收节点余额快照对应的区块高度 */
-	toFPAYBalanceSnapshot    uint64   /* 接收节点FPAY余额快照，工作节点的查询结果 */
-	toFPAYBalanceBlockNounce uint64   /* 接收节点FPAY余额快照对应的区块高度 */
-	workerBalanceSnapshot    uint64   /* 工作节点FPAY余额快照 */
-	nextWorker               [20]byte /* 下一个工作节点的地址。用于避免女巫攻击 */
-	status                   uint8    /* 检查结果，0为通过，1为放弃，其余为失败 */
-	signature                [64]byte /* 签名，包含前面所有数据 */
-	nextWorkerIP             [4]byte  /* 下一个工作节点IP。只广播不存储 */
-	nextWorkerPort           uint32   /* 下一个工作节点端口。只广播不存储 */
+import (
+	"crypto/rand"
+	"errors"
+	"io"
+	"zlog"
+)
+
+// 基类
+type Base struct {
+	Name     []byte /* "FPAY"字符 */
+	Version  []byte /* 版本号 */
+	Id       []byte /* id，随机数 */
+	Protocol []byte /* 协议类型，用于扩展。不同的协议用不同的插件处理，长度为15 */
 }
 
-// 创建一个Confirmation
-func New(last *Block) (b *Block) {
-	b = new(Block)
+var PROTOCOL_NAME string = "FPAY"
+var PROTOCOL_VERSION []byte = []byte{0, 0, 1, 0}
+
+// 创建一个Base
+func NewBase(s string) (c *Base) {
+	c = new(Base)
+	c.Init(s)
+	return
 }
 
 // 反序列化，给子类使用
-func Unmarshal(reader io.Reader) (c *Block, err error) {
+func UnmarshalBase(reader io.Reader) (c *Base, err error) {
 	buf := make([]byte, 56)
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {
@@ -62,6 +61,7 @@ func Unmarshal(reader io.Reader) (c *Block, err error) {
 	name := string(c.Name)
 	if name != PROTOCOL_NAME {
 		errors.New("Unsupport protocol: " + name)
+		zlog.Warningf("Wrong c.Name: [%v %v %v %v].\n", c.Name[0], c.Name[1], c.Name[2], c.Name[3])
 		return
 	}
 
@@ -74,12 +74,25 @@ func Unmarshal(reader io.Reader) (c *Block, err error) {
 	return
 }
 
+// 初始化Base，给子类使用
+func (this *Base) Init(s string) {
+	this.Protocol = []byte(s)
+	this.Name = []byte(PROTOCOL_NAME)
+	this.Version = PROTOCOL_VERSION
+
+	this.Id = make([]byte, 32)
+	_, err := rand.Read(this.Id)
+	if err != nil {
+		panic("crypto/rand.Read failure: " + err.Error())
+	}
+}
+
 func (this *Base) Marshal(writer io.Writer) (err error) {
 	buf := make([]byte, 56)
 	copy(buf, this.Name)
-	copy(buf[4:8], this.Version)
-	copy(buf[8:40], this.Id)
-	copy(buf[40:56], this.Protocol)
+	copy(buf[4:], this.Version)
+	copy(buf[8:], this.Id)
+	copy(buf[40:], this.Protocol)
 
 	_, err = writer.Write(buf)
 	return

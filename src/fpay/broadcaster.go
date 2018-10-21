@@ -20,46 +20,32 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package monitor
+package fpay
 
 import (
-	"fpay/cli"
-	"time"
-	"zlog"
+	"net"
 )
 
-type Monitor struct {
-	in, out chan uint8
+type BroadCaster struct {
+	Core
+	conn *net.TCPConn
 }
 
-func New(settings *cli.Settings) (mon *Monitor) {
-	mon = new(Monitor)
-	mon.in = make(chan uint8, 1)
-	mon.out = make(chan uint8, 1)
+func NewBroadCaster(conn *net.TCPConn) (brcst *BroadCaster) {
+	brcst = new(BroadCaster)
+	brcst.conn = conn
 	return
 }
 
-func (this *Monitor) loop() {
-	for {
-		select {
-		case <-this.in:
-			this.out <- 0
-			break
-		case <-time.After(10 * time.Second):
-			zlog.Infoln("10s runout")
-		}
-	}
+// 需要重写
+func (this *BroadCaster) PreLoop() (err error) {
+	return nil
 }
 
-func (this *Monitor) Startup() {
-	zlog.Infoln("Monitor service is starting up.")
-
-	go this.loop()
+// 需要重写
+func (this *BroadCaster) Loop() (isContinue bool) {
+	return true
 }
 
-func (this *Monitor) Shutdown() {
-	zlog.Infoln("Monitor service is Shutting down.")
-	this.in <- 0
-	<-this.out
-	zlog.Infoln("Monitor service already closed.")
-}
+// 需要重写
+func (this *BroadCaster) AftLoop() {}

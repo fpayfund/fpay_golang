@@ -20,50 +20,67 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package main
+package fpay
 
 import (
-	"fpay"
+	"io"
 	"math/rand"
-	"os"
-	"os/signal"
-	"syscall"
+	"net"
 	"time"
 	"zlog"
 )
 
-func main() {
-	//zlog.SetLevel(zlog.INFO)
-	//zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
-	rand.Seed(time.Now().UnixNano())
+type Router struct {
+	Core
+	conn  *net.TCPConn
+	saddr string
+}
 
-	settings, err := fpay.Parse()
-
-	if err != nil {
-		panic("Commandline params parse failed: " + err.Error())
-	}
-
-	zlog.Infoln("FPAY is starting up.")
-	defer zlog.Infoln("FPAY is shutdown.")
-
-	osSignal := make(chan os.Signal)
-	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
-	defer signal.Stop(osSignal)
-
-	// TODO: 设置settings参数
-
-	fpayService, err := fpay.New(settings)
-	if err != nil {
-		return
-	}
-
-	err = fpayService.Startup()
-	if err != nil {
-		return
-	}
-
-	defer fpayService.Shutdown()
-
-	<-osSignal
+func NewRouter(conn *net.TCPConn) (rt *Router) {
+	rt = new(Router)
+	rt.conn = conn
 	return
 }
+
+// 需要重写
+func (this *Router) PreLoop() (err error) {
+	this.saddr = this.conn.RemoteAddr().String()
+	return
+}
+
+// 需要重写
+func (this *Router) Loop() (isContinue bool) {
+	select {
+	case cmd := <-this.Command:
+		zlog.Tracef("%s received.\n", CMDS[cmd])
+		return false
+	default:
+		_, err := UnmarshalBase(this.conn)
+		if err != nil {
+			if err != io.EOF {
+				zlog.Warningln("Failed to unmarshal: " + err.Error())
+			}
+			return false
+		}
+		/*
+			protocol := string(c.Protocol)
+			handler, ok := this.handlers[protocol]
+			if !ok {
+				zlog.Warningln("Unspport protocol: " + protocol)
+			}
+
+			err = handler.Handle(conn)
+			if err != nil {
+				break
+			}
+		*/
+		// 暂时没可读数据，延长检查时间
+		// 平均会造成2.5毫秒左右的处理延时
+		// TODO: 该参数应该可以根据不同角色实现动态调整
+		<-time.After(time.Duration(rand.Intn(10*1000*1000)) * time.Nanosecond)
+	}
+	return true
+}
+
+// 需要重写
+func (this *Router) AftLoop() {}

@@ -20,50 +20,34 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package main
+package fpay
 
 import (
-	"fpay"
-	"math/rand"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-	"zlog"
+	"net"
 )
 
-func main() {
-	//zlog.SetLevel(zlog.INFO)
-	//zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
-	rand.Seed(time.Now().UnixNano())
+type Parent struct {
+	addr *net.TCPAddr
+	conn *net.TCPConn
+	rcv  *Receiver
+	rv   *Reviewer
+	trsf *Transferer
+}
 
-	settings, err := fpay.Parse()
-
-	if err != nil {
-		panic("Commandline params parse failed: " + err.Error())
-	}
-
-	zlog.Infoln("FPAY is starting up.")
-	defer zlog.Infoln("FPAY is shutdown.")
-
-	osSignal := make(chan os.Signal)
-	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM)
-	defer signal.Stop(osSignal)
-
-	// TODO: 设置settings参数
-
-	fpayService, err := fpay.New(settings)
-	if err != nil {
-		return
-	}
-
-	err = fpayService.Startup()
-	if err != nil {
-		return
-	}
-
-	defer fpayService.Shutdown()
-
-	<-osSignal
+func NewParent(addr *net.TCPAddr) (prt *Parent) {
+	prt = new(Parent)
+	prt.addr = addr
+	prt.rcv = NewReceiver(prt.conn)
+	prt.trsf = NewTransferer(prt.conn)
 	return
+}
+
+func (this *Parent) Startup() (err error) {
+	err = this.rcv.Startup()
+	return
+}
+
+func (this *Parent) Shutdown() {
+	this.rcv.Shutdown()
+	this.trsf.Shutdown()
 }

@@ -20,7 +20,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package account /* 节点 */
+package fpay /* 节点 */
 
 import (
 	"bytes"
@@ -66,7 +66,7 @@ var MnemonicsWords = []string{
 	"yule", "yolk", "yuan", "yelp", "yarn", "yawl", "yank", "yowl", "year", "york",
 	"zeal", "zone", "zion", "zinc", "zero", "zola", "zeke", "zing", "zoom", "zebra"}
 
-func Create() (account *Account) {
+func NewAccount() (account *Account) {
 	random := make([]byte, 40)
 	_, err := rand.Read(random)
 	if err != nil {

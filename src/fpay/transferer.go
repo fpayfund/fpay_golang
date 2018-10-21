@@ -20,28 +20,32 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-package cache
+package fpay
 
-const (
-	READY uint8 = iota
+import (
+	"net"
 )
 
-type Cache struct {
-	MessageOut chan uint8
-	options    *redis.Options
-	client     *redis.Client
+type Transferer struct {
+	Core
+	conn *net.TCPConn
 }
 
-func New() (cache *Cache, err error) {
-	cache = new(Cache)
-	cache.MessageOut = make(chan uint8)
-	return cache, nil
+func NewTransferer(conn *net.TCPConn) (trsf *Transferer) {
+	trsf = new(Transferer)
+	trsf.conn = conn
+	return
 }
 
-func (this *Cache) Startup() {
-
+// 需要重写
+func (this *Transferer) PreLoop() (err error) {
+	return nil
 }
 
-func (this *Cache) Shutdown() {
-
+// 需要重写
+func (this *Transferer) Loop() (isContinue bool) {
+	return true
 }
+
+// 需要重写
+func (this *Transferer) AftLoop() {}
