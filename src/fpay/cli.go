@@ -23,42 +23,24 @@ DEALINGS IN THE SOFTWARE.
 package fpay
 
 import (
-	"os"
-	"strings"
-	"zlog"
+	"flag"
 )
 
 type Settings struct {
-	Args    []string
-	TCPAddr string
+	ListeningAddr, ParentAddr, GodBlock, AccountPath string
+	NewAccount                                       bool
 }
 
 // 命令行参数解释
 // -T:  tcp协议监听地址
 //      用法: -T0.0.0.0:8080 或者 -T 0.0.0.0:8080
-func Parse() (settings *Settings, err error) {
+func ParseCLI() (settings *Settings, err error) {
 	settings = new(Settings)
-	settings.Args = os.Args
-
-	// TODO: 正式解释参数
-	for i := 0; i < len(settings.Args); i++ {
-		arg := settings.Args[i]
-		l := len(arg)
-
-		if i == 0 || l <= 1 || (!strings.HasPrefix(arg, "-")) {
-			continue
-		}
-
-		switch []byte(arg)[1] {
-		case []byte("T")[0]:
-			if l == 2 {
-				i++
-				settings.TCPAddr = settings.Args[i]
-			} else {
-				settings.TCPAddr = string([]byte(arg)[2:l])
-			}
-			zlog.Tracef("settings.TCPAddr=%s\n", settings.TCPAddr)
-		}
-	}
+	flag.StringVar(&settings.ListeningAddr, "L", "0.0.0.0:8080", "Listening address.")
+	flag.StringVar(&settings.ParentAddr, "P", "", "Default parent address.")
+	flag.StringVar(&settings.GodBlock, "G", "", "God block config.")
+	flag.StringVar(&settings.AccountPath, "A", "", "Account file.")
+	flag.BoolVar(&settings.NewAccount, "N", false, "Generate new account.")
+	flag.Parse()
 	return
 }

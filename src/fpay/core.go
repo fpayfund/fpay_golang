@@ -64,12 +64,15 @@ func (this *Core) Init(c CoreI) {
 func (this *Core) Run() {
 	err := this.PreLoop()
 	if err != nil {
-		this.State <- STATE_FAILED
 		zlog.Errorln("PreLoop failed: " + err.Error())
+
+		this.State <- STATE_FAILED
+		zlog.Traceln("STATE_FAILED sent.")
 		return
 	}
 
 	this.State <- STATE_READY
+	zlog.Traceln("STATE_READY sent.")
 
 	for {
 		ok := this.Loop()
@@ -81,20 +84,20 @@ func (this *Core) Run() {
 	this.AftLoop()
 
 	this.State <- STATE_CLOSED
+	zlog.Traceln("STATE_CLOSED sent.")
 }
 
 func (this *Core) Startup() (err error) {
-	zlog.Infoln("Starting up.")
+	zlog.Debugln("Starting up.")
 
 	go this.Run()
 
 	s := <-this.State
+	zlog.Tracef("%s received.\n", STATES[s])
 	switch s {
 	case STATE_READY:
-		zlog.Infoln("Started.")
 		return
 	default:
-		zlog.Debugf("%s received.\n", STATES[s])
 		zlog.Errorln("Failed to start.")
 
 		return errors.New(fmt.Sprintf("Unexpected state %s received.", STATES[s]))
@@ -102,14 +105,17 @@ func (this *Core) Startup() (err error) {
 }
 
 func (this *Core) Shutdown() {
-	zlog.Infoln("Shutting down.")
+	zlog.Debugln("Shutting down.")
+
 	this.Command <- CMD_SHUT
 	zlog.Traceln("CMD_SHUT sent.")
 
 	s := <-this.State
+	zlog.Tracef("%s received.\n", STATES[s])
 	switch s {
 	case STATE_CLOSED:
-		zlog.Infoln("Closed.")
+		zlog.Debugln("Closed.")
+		return
 	default:
 		zlog.Debugf("%s received.\n", STATES[s])
 		zlog.Warningln("Closed abnormally.")

@@ -24,30 +24,36 @@ package fpay
 
 import (
 	"net"
+	"zlog"
 )
 
 type Parent struct {
-	addr *net.TCPAddr
-	conn *net.TCPConn
-	rcv  *Receiver
-	rv   *Reviewer
-	trsf *Transferer
+	saddr string
+	raddr *net.TCPAddr
+	conn  *net.TCPConn
+	rcv   *Receiver
+	rv    *Reviewer
+	trsf  *Transferer
 }
 
-func NewParent(addr *net.TCPAddr) (prt *Parent) {
+func NewParent(raddr *net.TCPAddr) (prt *Parent) {
 	prt = new(Parent)
-	prt.addr = addr
-	prt.rcv = NewReceiver(prt.conn)
-	prt.trsf = NewTransferer(prt.conn)
+	prt.raddr = raddr
+	prt.saddr = raddr.String()
+	prt.rcv = NewReceiver(prt.raddr)
 	return
 }
 
 func (this *Parent) Startup() (err error) {
+	zlog.Infof("Connection to %s.\n", this.saddr)
+
 	err = this.rcv.Startup()
+	if err != nil {
+		zlog.Warningln("Startup failed: " + err.Error())
+	}
 	return
 }
 
 func (this *Parent) Shutdown() {
 	this.rcv.Shutdown()
-	this.trsf.Shutdown()
 }

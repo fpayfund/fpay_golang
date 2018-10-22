@@ -23,6 +23,7 @@ DEALINGS IN THE SOFTWARE.
 package main
 
 import (
+	"fmt"
 	"fpay"
 	"math/rand"
 	"os"
@@ -33,14 +34,23 @@ import (
 )
 
 func main() {
-	//zlog.SetLevel(zlog.INFO)
-	//zlog.SetTagLevel(zlog.TRACE, "fpay/(*FPAY)")
+	zlog.SetLevel(zlog.TRACE)
+	zlog.SetTagLevel(zlog.SILENCE, "fpay/(*Core)")
 	rand.Seed(time.Now().UnixNano())
 
-	settings, err := fpay.Parse()
+	settings, err := fpay.ParseCLI()
 
 	if err != nil {
 		panic("Commandline params parse failed: " + err.Error())
+	}
+
+	if settings.NewAccount {
+		fmt.Println(fpay.NewAccount().ToJson())
+		return
+	} else if settings.AccountPath != "" {
+		ac, _ := fpay.LoadAccount(settings.AccountPath)
+		fmt.Println(ac.ToJson())
+		return
 	}
 
 	zlog.Infoln("FPAY is starting up.")

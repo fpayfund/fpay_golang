@@ -40,6 +40,7 @@ type Finder struct {
 
 func NewFinder(laddr *net.TCPAddr, officers []string) (fd *Finder) {
 	fd = new(Finder)
+	fd.Init(fd)
 	fd.laddr = laddr
 	fd.officers = make([]*net.TCPAddr, 0, len(officers))
 	fd.rsvParents = make(map[string]*Parent)
@@ -60,7 +61,7 @@ func NewFinder(laddr *net.TCPAddr, officers []string) (fd *Finder) {
 }
 
 func (this *Finder) PreLoop() (err error) {
-	zlog.Infoln("Starting")
+	zlog.Infoln("Starting up.")
 	return nil
 }
 
@@ -73,6 +74,7 @@ func (this *Finder) Loop() (isContinue bool) {
 		}
 	default:
 		if this.preAddrs.Len() == 0 {
+			zlog.Traceln("Looping.")
 			<-time.After(500 * time.Millisecond)
 			return true
 		}

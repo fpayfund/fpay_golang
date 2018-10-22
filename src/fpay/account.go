@@ -28,15 +28,19 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha1"
-	"zlog"
+	"encoding/json"
+	"errors"
+	"golang.org/x/crypto/ripemd160"
+	"io/ioutil"
 )
 
 type Account struct {
-	EncryptType    uint16     /* 加密类型 */
-	PrivateKey     [32]byte   /* 私钥 */
-	PublicKey      [64]byte   /* 公钥 */
-	Address        [20]byte   /* 地址 */
-	MnemonicsWords [32]string /* 助记词 */
+	EncryptType    uint16   /* 加密类型 */
+	Random         []byte   /* 40位随机数 */
+	PrivateKey     []byte   /* 32位私钥 */
+	PublicKey      []byte   /* 64位公钥 */
+	Address        []byte   /* 20位地址 */
+	MnemonicsWords []string /* 32个助记词 */
 }
 
 var MnemonicsWords = []string{
@@ -66,37 +70,99 @@ var MnemonicsWords = []string{
 	"yule", "yolk", "yuan", "yelp", "yarn", "yawl", "yank", "yowl", "year", "york",
 	"zeal", "zone", "zion", "zinc", "zero", "zola", "zeke", "zing", "zoom", "zebra"}
 
-func NewAccount() (account *Account) {
+func NewWrongDataLengthError() (err error) {
+	return errors.New("The length of data is wrong.")
+}
+
+func GenerateAddress(pubKey []byte) (addr []byte, err error) {
+	if len(pubKey) != 64 {
+		err = NewWrongDataLengthError()
+		return
+	}
+
+	addr = ripemd160.New().Sum(sha1.New().Sum(pubKey)[64:])[20:]
+	return
+}
+
+func GenerateAccount(random []byte) (a *Account) {
+	a = new(Account)
+	a.Random = random
+	a.MnemonicsWords = make([]string, 0, 40)
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), bytes.NewReader(a.Random))
+	if err != nil {
+		panic("crypto/ecdsa.GenerateKey failure: " + err.Error())
+	}
+
+	a.PrivateKey = privateKey.D.Bytes()
+	a.PublicKey = make([]byte, 64, 64)
+	copy(a.PublicKey, privateKey.PublicKey.X.Bytes())
+	copy(a.PublicKey[32:], privateKey.PublicKey.Y.Bytes())
+	a.Address, _ = GenerateAddress(a.PublicKey)
+
+	for _, v := range a.Random {
+		a.MnemonicsWords = append(a.MnemonicsWords, MnemonicsWords[v])
+	}
+	return
+}
+
+func NewAccount() (a *Account) {
 	random := make([]byte, 40)
 	_, err := rand.Read(random)
 	if err != nil {
 		panic("crypto/rand.Read failure: " + err.Error())
 	}
 
-	account = new(Account)
+	return GenerateAccount(random)
+}
 
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), bytes.NewReader(random))
+func LoadAccount(path string) (ac *Account, err error) {
+	fs, err := ioutil.ReadFile(path)
 	if err != nil {
-		panic("crypto/ecdsa.GenerateKey failure: " + err.Error())
+		return
 	}
 
-	for n, v := range privateKey.D.Bytes() {
-		account.PrivateKey[n] = v
+	ac = new(Account)
+	err = json.Unmarshal(fs, ac)
+	if err != nil {
+		return
 	}
 
-	for n, v := range privateKey.PublicKey.X.Bytes() {
-		account.PublicKey[n] = v
+	if ac.Random == nil && ac.MnemonicsWords == nil {
+		err = errors.New("No private data or mnemonics words found.")
+		return
 	}
 
-	for n, v := range privateKey.PublicKey.Y.Bytes() {
-		account.PublicKey[n+32] = v
+	if ac.Random == nil {
+		if len(ac.MnemonicsWords) != 40 {
+			err = NewWrongDataLengthError()
+			return
+		}
+
+		ac.Random = make([]byte, 0, 40)
+		var n int
+		var w, gw string
+		for _, w = range ac.MnemonicsWords {
+			for n, gw = range MnemonicsWords {
+				if w == gw {
+					break
+				}
+			}
+			ac.Random = append(ac.Random, byte(n))
+		}
 	}
 
-	account.Address = sha1.Sum(account.PublicKey[:]) // TODO: 还要加一层ripemd160
-
-	for n, v := range account.PrivateKey {
-		account.MnemonicsWords[n] = MnemonicsWords[v]
+	if len(ac.Random) < 40 {
+		err = errors.New("The length of data is wrong.")
+		return
 	}
-	zlog.Traceln(account)
+
+	ac = GenerateAccount(ac.Random)
+	return
+}
+
+func (this *Account) ToJson() (j string) {
+	a, _ := json.Marshal(this)
+	j = string(a)
 	return
 }

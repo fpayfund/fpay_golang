@@ -24,28 +24,43 @@ package fpay
 
 import (
 	"net"
+	"time"
+	"zlog"
 )
 
 type Receiver struct {
 	Core
-	conn *net.TCPConn
+	raddr *net.TCPAddr
+	saddr string
+	conn  *net.TCPConn
 }
 
-func NewReceiver(conn *net.TCPConn) (rcv *Receiver) {
+func NewReceiver(raddr *net.TCPAddr) (rcv *Receiver) {
 	rcv = new(Receiver)
-	rcv.conn = conn
+	rcv.Init(rcv)
+	rcv.raddr = raddr
+	rcv.saddr = raddr.String()
+	return
+}
+
+func (this *Receiver) PreLoop() (err error) {
+	zlog.Infof("Connecting to %s.\n", this.saddr)
+
+	this.conn, err = net.DialTCP("tcp", nil, this.raddr)
+	if err != nil {
+		zlog.Warningf("Connect %s failed.", this.saddr)
+	}
+	zlog.Infoln("Connected.")
 	return
 }
 
 // 需要重写
-func (this *Receiver) PreLoop() (err error) {
-	return nil
-}
-
-// 需要重写
 func (this *Receiver) Loop() (isContinue bool) {
+	<-time.After(1000 * time.Millisecond)
 	return true
 }
 
 // 需要重写
-func (this *Receiver) AftLoop() {}
+func (this *Receiver) AftLoop() {
+	this.conn.Close()
+}

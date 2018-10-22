@@ -33,6 +33,7 @@ run:
 	./$(BINARY_NAME)
 deps:
 	$(GOGET) -u github.com/go-redis/redis
+	$(GOGET) -u golang.org/x/crypto/ripemd160
 
 zlog:
 	$(GOBUILD) zlog

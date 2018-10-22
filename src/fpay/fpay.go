@@ -88,7 +88,7 @@ var Officers = []string{
 func New(settings *Settings) (fs *FPAY, err error) {
 	fs = new(FPAY)
 	fs.settings = settings
-	fs.server = NewServer(settings.TCPAddr, Officers)
+	fs.server = NewServer(settings.ListeningAddr, Officers)
 	fs.in = make(chan uint8)
 	fs.out = make(chan uint8)
 	return

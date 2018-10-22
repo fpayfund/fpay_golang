@@ -38,9 +38,10 @@ const (
 	WARNING              /* 异常警告信息(无需人工干预) */
 	ERROR                /* 错误信息(不影响服务，需要人工干预) */
 	FATAL                /* 崩溃信息(无法继续提供服务) */
+	SILENCE
 )
 
-var LogLevelNames [7]string = [7]string{"VERBOSE", "TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "FATAL"}
+var LogLevelNames [8]string = [8]string{"VERBOSE", "TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "FATAL", "SILENCE"}
 
 var (
 	globalLevel  uint8            = VERBOSE                /* 全局日志级别 */
