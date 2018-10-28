@@ -24,14 +24,17 @@ package fpay
 
 import (
 	"net"
+	"time"
+	"zlog"
 )
 
 type BroadCaster struct {
 	Core
-	conn *net.TCPConn
+	conn         *net.TCPConn
+	lastSequence uint64
 }
 
-func NewBroadCaster(conn *net.TCPConn) (brcst *BroadCaster) {
+func BroadCasterNew(ctx *FPAY, conn *net.TCPConn) (brcst *BroadCaster) {
 	brcst = new(BroadCaster)
 	brcst.conn = conn
 	return
@@ -44,6 +47,15 @@ func (this *BroadCaster) PreLoop() (err error) {
 
 // 需要重写
 func (this *BroadCaster) Loop() (isContinue bool) {
+	select {
+	case cmd := <-this.Command:
+		zlog.Tracef("%s received.\n", CMDS[cmd])
+		if cmd == CMD_SHUT {
+			return false
+		}
+	default:
+		<-time.After(500 * time.Millisecond)
+	}
 	return true
 }
 

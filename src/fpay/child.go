@@ -24,80 +24,44 @@ package fpay
 
 import (
 	"net"
+	"time"
+	"zlog"
 )
 
 type Child struct {
-	addr  *net.TCPAddr
-	conn  *net.TCPConn
-	brcst *BroadCaster
-	rt    *Router
+	Core
+	Ctx   *FPAY
+	Addr  *net.TCPAddr
+	Conn  *net.TCPConn
+	Brcst *BroadCaster
 }
 
-func NewChild(conn *net.TCPConn) (chd *Child) {
+func ChildNew(ctx *FPAY, conn *net.TCPConn) (chd *Child) {
 	chd = new(Child)
-	chd.addr, _ = net.ResolveTCPAddr("tcp", conn.RemoteAddr().String())
-	chd.conn = conn
-	chd.brcst = NewBroadCaster(conn)
-	chd.rt = NewRouter(conn)
+	chd.Init(chd)
+	chd.Ctx = ctx
+	chd.Addr, _ = net.ResolveTCPAddr("tcp", conn.RemoteAddr().String())
+	chd.Conn = conn
+	chd.Brcst = BroadCasterNew(ctx, conn)
 	return
 }
 
-func (this *Child) Startup() {
-	this.brcst.Startup()
-	this.rt.Startup()
+func (this *Child) PreLoop() (err error) {
+	return
 }
 
-func (this *Child) Shutdown() {
-	this.brcst.Shutdown()
-	this.rt.Shutdown()
-}
-
-/*
-func (this *Server) releaseAll() {
-	var saddr string
-
-	zlog.Debugln("Children is going to be released.")
-	for _, w := range this.children {
-		w.state <- CMD_SHUT
-		zlog.Traceln("CMD_SHUT is sended to %s" + w.conn.RemoteAddr().String())
-	}
-
-	zlog.Debugln("Parents is going to be released.")
-	for _, w := range this.reservedParents {
-		w.state <- CMD_SHUT
-		zlog.Traceln("CMD_SHUT is sended to %s" + w.conn.RemoteAddr().String())
-	}
-
-	for _, w := range this.children {
-		select {
-		case s := <-w.state:
-			if s == STATE_CLOSED {
-				saddr = w.conn.RemoteAddr().String()
-
-				zlog.Traceln("STATE_CLOSED is received from %s" + saddr)
-				w.conn.Close()
-				zlog.Tracef("Connection %s closed.\n", saddr)
-			}
-		default:
-			<-time.After(10 * time.Millisecond)
+func (this *Child) Loop() (isContinue bool) {
+	select {
+	case cmd := <-this.Command:
+		zlog.Tracef("%s received.\n", CMDS[cmd])
+		if cmd == CMD_SHUT {
+			return false
 		}
+	default:
+		<-time.After(500 * time.Millisecond)
 	}
-	zlog.Debugln("All children released.")
-
-	for _, w := range this.reservedParents {
-		select {
-		case s := <-w.state:
-			if s == STATE_CLOSED {
-				saddr = w.conn.RemoteAddr().String()
-
-				zlog.Traceln("STATE_CLOSED is received from %s" + saddr)
-				w.conn.Close()
-				zlog.Tracef("Connection %s closed.\n", saddr)
-			}
-		default:
-			<-time.After(10 * time.Millisecond)
-		}
-	}
-	zlog.Debugln("All parents released.")
+	return
 }
-*/
+
+func (this *Child) AftLoop() {
+}

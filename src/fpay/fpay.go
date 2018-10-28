@@ -23,8 +23,9 @@ DEALINGS IN THE SOFTWARE.
 package fpay
 
 import (
+	"io"
 	"net"
-	"time"
+	"sync"
 	"zlog"
 )
 
@@ -39,42 +40,26 @@ const (
 	SHUTTING
 )
 
+var VERSION []byte = []byte{0, 0, 1, 0}
+
 type FPAY struct {
-	// FPAY服务状态:
-	//   STARTING:
-	//     启动状态。负责启动系统监控服务、数据服务、监听服务和节点发现服务，并根据节点发现的结果切换到不同的状态
-
-	//   SHUTTING:
-	//     结束状态。负责通知并等待各个服务关闭
-
-	//   BOOKKEEPER:
-	//     出块者状态。负责汇集请求并出块
-
-	//   REVIEWER:
-	//     评审者状态。负责汇集请求，提交给出块者，同时评审出块者的工作成果并广播
-
-	//   TRANSFERER:
-	//     传送者状态。负责汇集请求，提交给上级传送者，同时广播
-
-	//   TOP_TRANSFERER:
-	//     顶级传送者状态。负责汇集请求，提交给评审者，同时广播。顶级传送者可以审核整个出块者和评审者的工作业绩
-
-	//   RECEIVER:
-	//     接收者状态。负责汇集请求，提交给上级传送者，同时广播。接收者更多接受支付者的请求，并需要根据支付者的订阅返回信息
-
-	//   PAYER:
-	//     支付者状态。负责提交请求。只接收与自己相关的信息
-	state                                   uint8
-	in, out                                 chan uint8 // 命令输入、输出队列
-	nodes, availableNodes, unavailableNodes []string   // 节点，可用节点，不可用节点
-	settings                                *Settings
-	server                                  *Server
-	tcpConnections                          []*net.TCPConn
+	Core
+	Version  []byte            // 4位版本号
+	Settings *Settings         // 初始设置，启动参数
+	Officers []string          // 官方节点
+	Laddr    *net.TCPAddr      // 监听端口
+	Lsn      *net.TCPListener  // 监听队列
+	DB       *Cache            // 缓存
+	Fd       *Finder           // 节点发现go程
+	Parent   *Parent           // 父节点
+	Children map[string]*Child // 子节点go程
+	State    uint8             // 当前状态
+	Locker   *sync.Mutex       // 状态锁
 }
 
 // FPAY官方启动节点
 var Officers = []string{
-	//	"127.0.0.1:8080",
+	"127.0.0.1:8080",
 	"127.0.0.1:8081",
 	"127.0.0.1:8082",
 	"127.0.0.1:8083",
@@ -85,101 +70,124 @@ var Officers = []string{
 	"127.0.0.1:8088",
 	"127.0.0.1:8089"}
 
-func New(settings *Settings) (fs *FPAY, err error) {
+func FPAYNew(settings *Settings) (fs *FPAY, err error) {
 	fs = new(FPAY)
-	fs.settings = settings
-	fs.server = NewServer(settings.ListeningAddr, Officers)
-	fs.in = make(chan uint8)
-	fs.out = make(chan uint8)
+	fs.Init(fs)
+	fs.Version = VERSION
+	fs.Settings = settings
+	fs.Laddr, err = net.ResolveTCPAddr("tcp", settings.Laddr)
+	if err != nil {
+		zlog.Errorln("Address %s resolved failed: " + err.Error())
+		return nil, err
+	}
+
+	fs.Officers = Officers
+	fs.Children = make(map[string]*Child, 100)
+	fs.Locker = new(sync.Mutex)
+	fs.Fd = FinderNew(fs)
 	return
 }
 
-func (this *FPAY) starting() {
-	zlog.Traceln("STARTING")
+func (this *FPAY) checkAvailable(addr *net.TCPAddr) (isAvailable bool) {
+	return true
 }
 
-func (this *FPAY) bookkeeper() {
-	zlog.Traceln("BOOKKEEPER")
-}
+func (this *FPAY) sendContext(conn *net.TCPConn) {}
 
-func (this *FPAY) reviewer() {
-	zlog.Traceln("REVIEWER")
-}
+func (this *FPAY) sendRecommandList(conn *net.TCPConn) {}
 
-func (this *FPAY) transferer() {
-	zlog.Traceln("TRANSFERER")
-}
+func (this *FPAY) PreLoop() (err error) {
+	zlog.Infoln("Connecting Database.")
 
-func (this *FPAY) topTransferer() {
-	zlog.Traceln("TOP_TRANSFERER")
-}
+	err = this.DB.Startup()
 
-func (this *FPAY) receiver() {
-	zlog.Traceln("RECEIVER")
-}
+	zlog.Infoln("Database connected.")
 
-func (this *FPAY) payer() {
-	zlog.Traceln("PAYER")
-}
+	zlog.Infoln("Binding address: " + this.Settings.Laddr)
 
-func (this *FPAY) shutting() {
-	zlog.Traceln("SHUTTING")
-	this.out <- 0
-}
-
-func (this *FPAY) loop() {
-	for {
-		select {
-		case <-this.in:
-			this.state = SHUTTING
-		case <-time.After(200 * time.Millisecond):
-			switch this.state {
-			case STARTING:
-				this.starting()
-			case BOOKKEEPER:
-				this.bookkeeper()
-			case REVIEWER:
-				this.reviewer()
-			case TRANSFERER:
-				this.transferer()
-			case TOP_TRANSFERER:
-				this.topTransferer()
-			case RECEIVER:
-				this.receiver()
-			case PAYER:
-				this.payer()
-			case SHUTTING:
-				this.shutting()
-			default:
-				zlog.Errorln("Unsupport state: %u\n", this.state)
-				this.state = SHUTTING
-			}
-		}
-	}
-}
-
-func (this *FPAY) Startup() (err error) {
-	zlog.Infoln("FPAY service is starting up.")
-
-	err = this.server.Startup()
+	this.Locker.Lock()
+	this.Lsn, err = net.ListenTCP("tcp", this.Laddr)
 	if err != nil {
+		zlog.Fatalf("Address %s binding failed.\n", this.Settings.Laddr)
+		if this.Lsn != nil {
+			this.Lsn.Close()
+			this.Locker.Unlock()
+		}
 		return
 	}
-	defer func() {
-		if err != nil {
-			this.server.Shutdown()
-		}
-	}()
+	this.Locker.Unlock()
+	zlog.Debugf("Address %s is listening.\n", this.Settings.Laddr)
+	zlog.Infoln("Address binded.")
 
-	go this.loop()
+	err = this.Fd.Startup()
+
+	zlog.Infoln("Started.")
 	return
+}
+
+func (this *FPAY) Loop() (isContinue bool) {
+	select {
+	case cmd := <-this.Command:
+		switch cmd {
+		case CMD_SHUT:
+			zlog.Traceln("CMD_SHUT received.")
+			return false
+		default:
+			zlog.Warningf("Unsupport %s received.\n", CMDS[cmd])
+			return true
+		}
+	default:
+		zlog.Traceln("Waiting for next connection.")
+		conn, err := this.Lsn.AcceptTCP()
+		if err != nil {
+			if err == io.EOF {
+				zlog.Warningf("Connection %s closed.\n", this.Settings.Laddr)
+			}
+			return false
+		}
+
+		raddr, _ := net.ResolveTCPAddr("tcp", this.Settings.Laddr)
+
+		// TODO:
+		// 检查请求者是否具备连接资格
+		ok := this.checkAvailable(raddr)
+		if !ok {
+			// 如果不具备，则返回推荐列表，并关闭连接
+			this.sendRecommandList(conn)
+			conn.Close()
+		} else {
+			// 如果具备，创建API线程接收请求以及创建广播线程推送数据
+			this.sendContext(conn)
+			chd := ChildNew(this, conn)
+			chd.Startup()
+			this.Children[raddr.String()] = chd
+		}
+		return true
+	}
+}
+
+func (this *FPAY) AftLoop() {
+	this.Fd.Shutdown()
+
+	zlog.Infoln("Closing child connections.")
+
+	for _, child := range this.Children {
+		child.Shutdown()
+	}
+
+	zlog.Infoln("All child connections closed.")
 }
 
 func (this *FPAY) Shutdown() {
-	zlog.Infoln("FPAY service is Shutting down.")
+	zlog.Infoln("Shutting down.")
 
-	defer zlog.Traceln("FPAY service already closed.")
-	defer this.server.Shutdown()
+	this.Locker.Lock()
+	if this.Lsn != nil {
+		this.Lsn.Close()
+	}
+	this.Locker.Unlock()
 
-	this.in <- 0
+	this.Core.Shutdown()
+
+	zlog.Infoln("Closed.")
 }

@@ -38,13 +38,13 @@ type Block struct {
 }
 
 // 创建一个Block
-func NewBlock(last *Block) (b *Block) {
+func BlockNew(a *Account, lb *Block, pms []*Payment) (b *Block) {
 	b = new(Block)
 	return
 }
 
 // 反序列化，给子类使用
-func UnmarshalBlock(reader io.Reader) (b *Block, err error) {
+func BlockUnmarshal(reader io.Reader) (b *Block, err error) {
 	buf := make([]byte, 192)
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {

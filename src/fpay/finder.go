@@ -31,30 +31,40 @@ import (
 
 type Finder struct {
 	Core
-	laddr      *net.TCPAddr
-	officers   []*net.TCPAddr
-	rsvParents map[string]*Parent
-	preAddrs   *list.List
-	unusAddrs  *list.List
+	Ctx        *FPAY
+	Officers   []*net.TCPAddr
+	RsvParents map[string]*Parent
+	PreAddrs   *list.List
+	UnusAddrs  *list.List
 }
 
-func NewFinder(laddr *net.TCPAddr, officers []string) (fd *Finder) {
+func FinderNew(ctx *FPAY) (fd *Finder) {
 	fd = new(Finder)
 	fd.Init(fd)
-	fd.laddr = laddr
-	fd.officers = make([]*net.TCPAddr, 0, len(officers))
-	fd.rsvParents = make(map[string]*Parent)
-	fd.preAddrs = list.New()
-	fd.unusAddrs = list.New()
+	fd.Ctx = ctx
+	fd.Officers = make([]*net.TCPAddr, 0, len(ctx.Officers))
+	fd.RsvParents = make(map[string]*Parent)
+	fd.PreAddrs = list.New()
+	fd.UnusAddrs = list.New()
 
-	for _, officer := range officers {
-		oaddr, err := net.ResolveTCPAddr("tcp", officer)
+	// 如果存在默认父节点，则优先连接
+	oaddr, err := net.ResolveTCPAddr("tcp", ctx.Settings.Paddr)
+	if err == nil {
+		fd.PreAddrs.PushBack(oaddr)
+	}
+
+	// 先请求官方节点做服务发现
+	for _, officer := range ctx.Officers {
+		oaddr, err = net.ResolveTCPAddr("tcp", officer)
 		if err == nil {
-			fd.officers = append(fd.officers, oaddr)
+			fd.Officers = append(fd.Officers, oaddr)
 		}
 
-		if oaddr.String() != laddr.String() {
-			fd.preAddrs.PushBack(oaddr)
+		// 确认本节点是不是官方节点。目前只通过监听的IP地址确认，后期需要找到更准确的办法
+		if oaddr.String() != ctx.Settings.Laddr {
+			// 如果本节点与官方节点不一致一致，则建立连接
+			// 主要目的为了避免自己连接自己
+			fd.PreAddrs.PushBack(oaddr)
 		}
 	}
 	return
@@ -73,23 +83,23 @@ func (this *Finder) Loop() (isContinue bool) {
 			return false
 		}
 	default:
-		if this.preAddrs.Len() == 0 {
+		if this.PreAddrs.Len() == 0 {
 			zlog.Traceln("Looping.")
 			<-time.After(500 * time.Millisecond)
 			return true
 		}
 
-		raddr, ok := this.preAddrs.Remove(this.preAddrs.Front()).(*net.TCPAddr)
+		raddr, ok := this.PreAddrs.Remove(this.PreAddrs.Front()).(*net.TCPAddr)
 		if !ok {
 			panic("Impossible.")
 		}
 
-		p := NewParent(raddr)
+		p := ParentNew(this.Ctx, raddr)
 		err := p.Startup()
 		if err != nil {
-			this.unusAddrs.PushBack(raddr)
+			this.UnusAddrs.PushBack(raddr)
 		} else {
-			this.rsvParents[raddr.String()] = p
+			this.RsvParents[raddr.String()] = p
 		}
 
 	}
@@ -99,7 +109,7 @@ func (this *Finder) Loop() (isContinue bool) {
 func (this *Finder) AftLoop() {
 	zlog.Infoln("Shutting down.")
 
-	for _, p := range this.rsvParents {
+	for _, p := range this.RsvParents {
 		p.Shutdown()
 	}
 

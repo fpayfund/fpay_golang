@@ -27,20 +27,21 @@ import (
 )
 
 type Settings struct {
-	ListeningAddr, ParentAddr, GodBlock, AccountPath string
-	NewAccount                                       bool
+	Anumber                            int
+	Laddr, Raddr, Gblock, Apath, Paddr string
+	Naccounts                          bool
 }
 
 // 命令行参数解释
-// -T:  tcp协议监听地址
-//      用法: -T0.0.0.0:8080 或者 -T 0.0.0.0:8080
 func ParseCLI() (settings *Settings, err error) {
 	settings = new(Settings)
-	flag.StringVar(&settings.ListeningAddr, "L", "0.0.0.0:8080", "Listening address.")
-	flag.StringVar(&settings.ParentAddr, "P", "", "Default parent address.")
-	flag.StringVar(&settings.GodBlock, "G", "", "God block config.")
-	flag.StringVar(&settings.AccountPath, "A", "", "Account file.")
-	flag.BoolVar(&settings.NewAccount, "N", false, "Generate new account.")
+	flag.StringVar(&settings.Laddr, "L", ":8080", "Listening address. Default is :8080")
+	flag.StringVar(&settings.Raddr, "R", ":6379", "Redis IP Address. Default is :6379.")
+	flag.StringVar(&settings.Gblock, "G", "", "God block config.")
+	flag.StringVar(&settings.Apath, "A", "", "Account file.")
+	flag.StringVar(&settings.Paddr, "P", "", "Default parent address.")
+	flag.BoolVar(&settings.Naccounts, "N", false, "Generate new accounts.")
+	flag.IntVar(&settings.Anumber, "AN", 1, "Number of new accounts generated.")
 	flag.Parse()
 	return
 }

@@ -32,6 +32,7 @@ import (
 	"errors"
 	"golang.org/x/crypto/ripemd160"
 	"io/ioutil"
+	"math/big"
 )
 
 type Account struct {
@@ -74,7 +75,7 @@ func NewWrongDataLengthError() (err error) {
 	return errors.New("The length of data is wrong.")
 }
 
-func GenerateAddress(pubKey []byte) (addr []byte, err error) {
+func AddressGenerate(pubKey []byte) (addr []byte, err error) {
 	if len(pubKey) != 64 {
 		err = NewWrongDataLengthError()
 		return
@@ -84,7 +85,7 @@ func GenerateAddress(pubKey []byte) (addr []byte, err error) {
 	return
 }
 
-func GenerateAccount(random []byte) (a *Account) {
+func AccountGenerate(random []byte) (a *Account) {
 	a = new(Account)
 	a.Random = random
 	a.MnemonicsWords = make([]string, 0, 40)
@@ -96,9 +97,9 @@ func GenerateAccount(random []byte) (a *Account) {
 
 	a.PrivateKey = privateKey.D.Bytes()
 	a.PublicKey = make([]byte, 64, 64)
-	copy(a.PublicKey, privateKey.PublicKey.X.Bytes())
-	copy(a.PublicKey[32:], privateKey.PublicKey.Y.Bytes())
-	a.Address, _ = GenerateAddress(a.PublicKey)
+	copy(a.PublicKey, privateKey.X.Bytes())
+	copy(a.PublicKey[32:], privateKey.Y.Bytes())
+	a.Address, _ = AddressGenerate(a.PublicKey)
 
 	for _, v := range a.Random {
 		a.MnemonicsWords = append(a.MnemonicsWords, MnemonicsWords[v])
@@ -106,17 +107,17 @@ func GenerateAccount(random []byte) (a *Account) {
 	return
 }
 
-func NewAccount() (a *Account) {
+func AccountNew() (a *Account) {
 	random := make([]byte, 40)
 	_, err := rand.Read(random)
 	if err != nil {
 		panic("crypto/rand.Read failure: " + err.Error())
 	}
 
-	return GenerateAccount(random)
+	return AccountGenerate(random)
 }
 
-func LoadAccount(path string) (ac *Account, err error) {
+func AccountLoad(path string) (ac *Account, err error) {
 	fs, err := ioutil.ReadFile(path)
 	if err != nil {
 		return
@@ -157,12 +158,46 @@ func LoadAccount(path string) (ac *Account, err error) {
 		return
 	}
 
-	ac = GenerateAccount(ac.Random)
+	ac = AccountGenerate(ac.Random)
+	return
+}
+
+func AccountsNew(n int) (acs []*Account) {
+	acs = make([]*Account, 0, n)
+	for i := 0; i < n; i++ {
+		acs = append(acs, AccountNew())
+	}
+	return
+}
+
+func AccountsToJson(acs []*Account) (js string) {
+	if len(acs) == 1 {
+		return acs[0].ToJson()
+	}
+	bytes, _ := json.Marshal(acs)
+	js = string(bytes)
 	return
 }
 
 func (this *Account) ToJson() (j string) {
 	a, _ := json.Marshal(this)
 	j = string(a)
+	return
+}
+
+func (this *Account) ToPrivateKey() (priv *ecdsa.PrivateKey) {
+	priv = new(ecdsa.PrivateKey)
+	priv.D = new(big.Int)
+	priv.D = priv.D.SetBytes(this.PrivateKey)
+	return
+}
+
+func (this *Account) ToPublicKey() (pub *ecdsa.PublicKey) {
+	pub = new(ecdsa.PublicKey)
+	pub.Curve = elliptic.P256()
+	pub.X = new(big.Int)
+	pub.X.SetBytes(this.PublicKey[:32])
+	pub.Y = new(big.Int)
+	pub.Y.SetBytes(this.PublicKey[32:64])
 	return
 }

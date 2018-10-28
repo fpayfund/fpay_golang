@@ -30,8 +30,8 @@ import (
 
 // 1.1.2. 确认请求
 type Confirmation struct {
-	encryptType              uint16 /* 加密类型，确定PublicKey和Signature处理方式 */
 	version                  []byte /* 4位协议版本，确定确认的处理方式 */
+	encryption               uint16 /* 加密类型，确定PublicKey和Signature处理方式 */
 	address                  []byte /* 20位工作节点地址 */
 	publicKey                []byte /* 64位工作节点公钥 */
 	blockNounce              uint64 /* 工作节点区块高度 */
@@ -50,13 +50,13 @@ type Confirmation struct {
 }
 
 // 创建一个Confirmation
-func NewConfirmation(last *Confirmation) (c *Confirmation) {
+func ConfirmationNew(last *Confirmation) (c *Confirmation) {
 	c = new(Confirmation)
 	return
 }
 
 // 反序列化，给子类使用
-func UnmarshalConfirmation(reader io.Reader) (c *Confirmation, err error) {
+func ConfirmationUnmarshal(reader io.Reader) (c *Confirmation, err error) {
 	buf := make([]byte, 247)
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {
@@ -65,9 +65,9 @@ func UnmarshalConfirmation(reader io.Reader) (c *Confirmation, err error) {
 	}
 
 	c = new(Confirmation)
-	encryptType, _ := binary.Uvarint(buf[:2])
-	c.encryptType = uint16(encryptType)
-	c.version = buf[2:6]
+	c.version = buf[:4]
+	encryption, _ := binary.Uvarint(buf[4:6])
+	c.encryption = uint16(encryption)
 	c.address = buf[6:26]
 	c.publicKey = buf[26:90]
 	c.blockNounce, _ = binary.Uvarint(buf[90:98])
@@ -91,7 +91,7 @@ func UnmarshalConfirmation(reader io.Reader) (c *Confirmation, err error) {
 
 func (this *Confirmation) Marshal(writer io.Writer) (err error) {
 	buf := make([]byte, 247)
-	binary.PutUvarint(buf, uint64(this.encryptType))
+	binary.PutUvarint(buf, uint64(this.encryption))
 	copy(buf[2:], this.version)
 	copy(buf[6:], this.address)
 	copy(buf[26:], this.publicKey)

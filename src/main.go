@@ -36,19 +36,19 @@ import (
 func main() {
 	zlog.SetLevel(zlog.TRACE)
 	zlog.SetTagLevel(zlog.SILENCE, "fpay/(*Core)")
+
 	rand.Seed(time.Now().UnixNano())
 
 	settings, err := fpay.ParseCLI()
-
 	if err != nil {
 		panic("Commandline params parse failed: " + err.Error())
 	}
 
-	if settings.NewAccount {
-		fmt.Println(fpay.NewAccount().ToJson())
+	if settings.Naccounts {
+		fmt.Println(fpay.AccountsToJson(fpay.AccountsNew(settings.Anumber)))
 		return
-	} else if settings.AccountPath != "" {
-		ac, _ := fpay.LoadAccount(settings.AccountPath)
+	} else if settings.Apath != "" {
+		ac, _ := fpay.AccountLoad(settings.Apath)
 		fmt.Println(ac.ToJson())
 		return
 	}
@@ -62,7 +62,7 @@ func main() {
 
 	// TODO: 设置settings参数
 
-	fpayService, err := fpay.New(settings)
+	fpayService, err := fpay.FPAYNew(settings)
 	if err != nil {
 		return
 	}

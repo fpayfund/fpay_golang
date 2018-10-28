@@ -24,36 +24,57 @@ package fpay
 
 import (
 	"net"
+	"time"
 	"zlog"
 )
 
 type Parent struct {
-	saddr string
-	raddr *net.TCPAddr
-	conn  *net.TCPConn
-	rcv   *Receiver
-	rv    *Reviewer
-	trsf  *Transferer
+	Core
+	Ctx     *FPAY
+	Saddr   string
+	Raddr   *net.TCPAddr
+	Conn    *net.TCPConn
+	Account *Account
 }
 
-func NewParent(raddr *net.TCPAddr) (prt *Parent) {
+func ParentNew(ctx *FPAY, raddr *net.TCPAddr) (prt *Parent) {
 	prt = new(Parent)
-	prt.raddr = raddr
-	prt.saddr = raddr.String()
-	prt.rcv = NewReceiver(prt.raddr)
+	prt.Init(prt)
+	prt.Ctx = ctx
+	prt.Raddr = raddr
+	prt.Saddr = raddr.String()
 	return
 }
 
-func (this *Parent) Startup() (err error) {
-	zlog.Infof("Connection to %s.\n", this.saddr)
+func (this *Parent) PreLoop() (err error) {
+	zlog.Infof("Try to connect to %s.\n", this.Saddr)
 
-	err = this.rcv.Startup()
+	this.Conn, err = net.DialTCP("tcp", nil, this.Raddr)
 	if err != nil {
-		zlog.Warningln("Startup failed: " + err.Error())
+		zlog.Warningf("%s connect failed.\n", this.Saddr)
+	} else {
+		zlog.Infof("%s connection established.")
 	}
 	return
 }
 
-func (this *Parent) Shutdown() {
-	this.rcv.Shutdown()
+func (this *Parent) Loop() (isContinue bool) {
+	select {
+	case cmd := <-this.Command:
+		zlog.Tracef("%s received.\n", CMDS[cmd])
+		if cmd == CMD_SHUT {
+			return false
+		}
+	default:
+		<-time.After(500 * time.Millisecond)
+	}
+	return true
+}
+
+func (this *Parent) AftLoop() {
+	zlog.Infof("Closing connection with %s.\n", this.Saddr)
+
+	this.Conn.Close()
+
+	zlog.Infof("connection with %s closed.\n", this.Saddr)
 }

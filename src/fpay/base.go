@@ -31,24 +31,23 @@ import (
 
 // 基类
 type Base struct {
-	Name     []byte /* "FPAY"字符 */
-	Version  []byte /* 版本号 */
-	Id       []byte /* id，随机数 */
-	Protocol []byte /* 协议类型，用于扩展。不同的协议用不同的插件处理，长度为15 */
+	Name     []byte /* 4位"FPAY"字符 */
+	Version  []byte /* 4位版本号 */
+	Id       []byte /* 32位id，随机数 */
+	Protocol []byte /* 16位协议类型，用于扩展。不同的协议用不同的插件处理 */
 }
 
 var PROTOCOL_NAME string = "FPAY"
-var PROTOCOL_VERSION []byte = []byte{0, 0, 1, 0}
 
 // 创建一个Base
-func NewBase(s string) (c *Base) {
+func BaseNew(s string) (c *Base) {
 	c = new(Base)
 	c.Init(s)
 	return
 }
 
 // 反序列化，给子类使用
-func UnmarshalBase(reader io.Reader) (c *Base, err error) {
+func BaseUnmarshal(reader io.Reader) (c *Base, err error) {
 	buf := make([]byte, 56)
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {
@@ -78,7 +77,7 @@ func UnmarshalBase(reader io.Reader) (c *Base, err error) {
 func (this *Base) Init(s string) {
 	this.Protocol = []byte(s)
 	this.Name = []byte(PROTOCOL_NAME)
-	this.Version = PROTOCOL_VERSION
+	this.Version = VERSION
 
 	this.Id = make([]byte, 32)
 	_, err := rand.Read(this.Id)
@@ -89,10 +88,10 @@ func (this *Base) Init(s string) {
 
 func (this *Base) Marshal(writer io.Writer) (err error) {
 	buf := make([]byte, 56)
-	copy(buf, this.Name)
-	copy(buf[4:], this.Version)
-	copy(buf[8:], this.Id)
-	copy(buf[40:], this.Protocol)
+	copy(buf, this.Name[:4])
+	copy(buf[4:], this.Version[:4])
+	copy(buf[8:], this.Id[:32])
+	copy(buf[40:], this.Protocol[:16])
 
 	_, err = writer.Write(buf)
 	return
